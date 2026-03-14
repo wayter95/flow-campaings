@@ -1,0 +1,267 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id         String            @id @default(cuid())
+  name       String?
+  email      String            @unique
+  password   String
+  workspaces WorkspaceMember[]
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+}
+
+model Workspace {
+  id             String            @id @default(cuid())
+  name           String
+  slug           String            @unique
+  members        WorkspaceMember[]
+  contacts       Contact[]
+  campaigns      Campaign[]
+  forms          Form[]
+  tags           Tag[]
+  emailLogs      EmailLog[]
+  segments       Segment[]
+  activityLogs   ActivityLog[]
+  automations    Automation[]
+  emailTemplates EmailTemplate[]
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+}
+
+model WorkspaceMember {
+  id          String    @id @default(cuid())
+  role        String    @default("owner")
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId String
+  createdAt   DateTime  @default(now())
+
+  @@unique([userId, workspaceId])
+}
+
+model Contact {
+  id             String                  @id @default(cuid())
+  email          String
+  firstName      String?
+  lastName       String?
+  customFields   Json?
+  source         String?
+  unsubscribed   Boolean                 @default(false)
+  workspace      Workspace               @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId    String
+  tags           ContactTag[]
+  submissions    LeadSubmission[]
+  emailLogs      EmailLog[]
+  activityLogs   ActivityLog[]
+  enrollments    AutomationEnrollment[]
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
+
+  @@unique([email, workspaceId])
+  @@index([workspaceId])
+}
+
+model Tag {
+  id          String       @id @default(cuid())
+  name        String
+  color       String?
+  workspace   Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId String
+  contacts    ContactTag[]
+  createdAt   DateTime     @default(now())
+
+  @@unique([name, workspaceId])
+  @@index([workspaceId])
+}
+
+model ContactTag {
+  id        String   @id @default(cuid())
+  contact   Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  contactId String
+  tag       Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  tagId     String
+  createdAt DateTime @default(now())
+
+  @@unique([contactId, tagId])
+}
+
+model Campaign {
+  id          String            @id @default(cuid())
+  name        String
+  subject     String?
+  htmlContent String?           @db.Text
+  status      String            @default("draft")
+  scheduledAt DateTime?
+  sentAt      DateTime?
+  workspace   Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId String
+  emailLogs   EmailLog[]
+  segments    CampaignSegment[]
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@index([workspaceId])
+  @@index([status])
+}
+
+model EmailLog {
+  id          String    @id @default(cuid())
+  status      String    @default("queued")
+  sentAt      DateTime?
+  openedAt    DateTime?
+  clickedAt   DateTime?
+  campaign    Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  campaignId  String
+  contact     Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  contactId   String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId String
+  createdAt   DateTime  @default(now())
+
+  @@index([campaignId])
+  @@index([contactId])
+  @@index([workspaceId])
+}
+
+model Form {
+  id          String           @id @default(cuid())
+  name        String
+  description String?
+  status      String           @default("active")
+  workspace   Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId String
+  fields      FormField[]
+  submissions LeadSubmission[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@index([workspaceId])
+}
+
+model FormField {
+  id       String  @id @default(cuid())
+  label    String
+  type     String  @default("text")
+  required Boolean @default(false)
+  options  Json?
+  order    Int     @default(0)
+  form     Form    @relation(fields: [formId], references: [id], onDelete: Cascade)
+  formId   String
+
+  @@index([formId])
+}
+
+model LeadSubmission {
+  id        String   @id @default(cuid())
+  data      Json
+  form      Form     @relation(fields: [formId], references: [id], onDelete: Cascade)
+  formId    String
+  contact   Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  contactId String?
+  createdAt DateTime @default(now())
+
+  @@index([formId])
+}
+
+model Segment {
+  id          String            @id @default(cuid())
+  name        String
+  rules       Json
+  workspace   Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId String
+  campaigns   CampaignSegment[]
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@index([workspaceId])
+}
+
+model CampaignSegment {
+  id         String   @id @default(cuid())
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  campaignId String
+  segment    Segment  @relation(fields: [segmentId], references: [id], onDelete: Cascade)
+  segmentId  String
+
+  @@unique([campaignId, segmentId])
+}
+
+model ActivityLog {
+  id          String    @id @default(cuid())
+  type        String
+  metadata    Json?
+  contact     Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  contactId   String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId String
+  createdAt   DateTime  @default(now())
+
+  @@index([contactId])
+  @@index([workspaceId])
+  @@index([createdAt])
+}
+
+model Automation {
+  id          String                 @id @default(cuid())
+  name        String
+  status      String                 @default("inactive") // active, inactive, paused
+  trigger     Json                   // { type: "form_submitted", formId: "xxx" }
+  flowData    Json?                  // nodes e edges do visual builder
+  workspace   Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId String
+  steps       AutomationStep[]
+  enrollments AutomationEnrollment[]
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+
+  @@index([workspaceId])
+  @@index([status])
+}
+
+model AutomationStep {
+  id           String     @id @default(cuid())
+  type         String     // send_email, add_tag, remove_tag, delay, condition
+  config       Json       // configuracao especifica do step
+  order        Int
+  automation   Automation @relation(fields: [automationId], references: [id], onDelete: Cascade)
+  automationId String
+
+  @@index([automationId])
+}
+
+model AutomationEnrollment {
+  id           String     @id @default(cuid())
+  status       String     @default("active") // active, completed, paused, failed
+  currentStep  Int        @default(0)
+  nextRunAt    DateTime?
+  contact      Contact    @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  contactId    String
+  automation   Automation @relation(fields: [automationId], references: [id], onDelete: Cascade)
+  automationId String
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@unique([contactId, automationId])
+  @@index([status, nextRunAt])
+}
+
+model EmailTemplate {
+  id          String    @id @default(cuid())
+  name        String
+  subject     String
+  htmlContent String    @db.Text
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([workspaceId])
+}
