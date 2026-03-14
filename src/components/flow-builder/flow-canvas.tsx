@@ -174,7 +174,7 @@ function FlowCanvasInner({ initialNodes = [], initialEdges = [], onSave, forms, 
     : null;
 
   return (
-    <div className="flex h-[calc(100vh-200px)] border rounded-lg overflow-hidden bg-gray-50">
+    <div className="flex h-[calc(100vh-200px)] border rounded-lg overflow-hidden bg-muted/50">
       <FlowSidebar />
 
       <div className="flex-1 flex flex-col">
@@ -200,12 +200,12 @@ function FlowCanvasInner({ initialNodes = [], initialEdges = [], onSave, forms, 
             nodeTypes={nodeTypes}
             fitView
             deleteKeyCode={["Backspace", "Delete"]}
-            className="bg-gray-50"
+            className="bg-muted/50"
           >
             <Controls />
             <MiniMap
               nodeStrokeWidth={3}
-              className="!bg-white !border !border-gray-200 !rounded-lg"
+              className="!bg-card !border !border-border !rounded-lg"
             />
             <Background variant={BackgroundVariant.Dots} gap={20} size={1} />
           </ReactFlow>

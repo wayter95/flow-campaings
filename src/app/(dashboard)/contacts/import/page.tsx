@@ -308,7 +308,7 @@ export default function ImportContactsPage() {
                 <p className="text-sm text-muted-foreground">Atualizados</p>
               </div>
               <div className="text-center p-4 bg-gray-50 dark:bg-gray-950 rounded-lg">
-                <p className="text-2xl font-bold text-gray-600">{result.skipped}</p>
+                <p className="text-2xl font-bold text-muted-foreground">{result.skipped}</p>
                 <p className="text-sm text-muted-foreground">Pulados</p>
               </div>
             </div>

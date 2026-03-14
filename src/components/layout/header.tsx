@@ -12,6 +12,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { LogOut, Menu } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { MobileSidebar } from "./mobile-sidebar";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 interface HeaderProps {
   userName: string | null;
@@ -42,6 +43,8 @@ export function Header({ userName, userEmail }: HeaderProps) {
       </Sheet>
 
       <div className="flex-1" />
+
+      <ThemeToggle />
 
       <DropdownMenu>
         <DropdownMenuTrigger
