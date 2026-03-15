@@ -3,7 +3,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   reactCompiler: true,
   output: "standalone", // Required for Docker/Railway deployment
-  serverExternalPackages: ["pg"],
+  serverExternalPackages: ["pg", "@prisma/adapter-pg"],
 };
 
 export default nextConfig;
