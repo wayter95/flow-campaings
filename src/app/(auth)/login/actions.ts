@@ -3,7 +3,10 @@
 import { signIn } from "@/lib/auth";
 import { AuthError } from "next-auth";
 
-export async function loginAction(formData: FormData) {
+export async function loginAction(
+  _prevState: { error: string } | null,
+  formData: FormData,
+) {
   try {
     await signIn("credentials", {
       email: formData.get("email") as string,
@@ -12,14 +15,10 @@ export async function loginAction(formData: FormData) {
     });
   } catch (error) {
     if (error instanceof AuthError) {
-      switch (error.type) {
-        case "CredentialsSignin":
-          return { error: "Email ou senha incorretos" };
-        default:
-          return { error: "Erro ao conectar. Tente novamente." };
-      }
+      return { error: "Email ou senha incorretos" };
     }
-    // NEXT_REDIRECT is thrown by signIn on success — rethrow it
+    // NEXT_REDIRECT is thrown by signIn on success — must rethrow
     throw error;
   }
+  return null;
 }

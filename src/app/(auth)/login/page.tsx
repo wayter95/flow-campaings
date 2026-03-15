@@ -12,13 +12,7 @@ import { useActionState } from "react";
 import { loginAction } from "./actions";
 
 export default function LoginPage() {
-  const [state, formAction, isPending] = useActionState(
-    async (_prev: { error: string } | null, formData: FormData) => {
-      const result = await loginAction(formData);
-      return result ?? null;
-    },
-    null,
-  );
+  const [state, formAction, isPending] = useActionState(loginAction, null);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-muted/30 px-4">
