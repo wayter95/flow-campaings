@@ -12,7 +12,10 @@ interface LogoProps {
   height?: number;
 }
 
-export function Logo({ className, href = "/", height = 28 }: LogoProps) {
+// SVG original size is 583x217 (width x height)
+const LOGO_ASPECT_RATIO = 583 / 217;
+
+export function Logo({ className, href = "/", height = 40 }: LogoProps) {
   const { theme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
@@ -26,7 +29,7 @@ export function Logo({ className, href = "/", height = 28 }: LogoProps) {
       src={logoSrc}
       alt="Flow Campaigns"
       height={height}
-      width={height * (701 / 302)}
+      width={height * LOGO_ASPECT_RATIO}
       className={cn("h-auto object-contain", className)}
       priority
     />
