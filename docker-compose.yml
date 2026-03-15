@@ -1,0 +1,14 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:3000"
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      # Sobrescreve para o host acessar o app no mesmo host:porta
+      NEXTAUTH_URL: http://localhost:8080
+    restart: unless-stopped

@@ -54,6 +54,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   ],
   callbacks: {
     async jwt({ token, user }) {
+      console.log("[auth] jwt callback called, user?", !!user);
       if (user) {
         token.id = user.id;
         token.workspaceId = (user as Record<string, unknown>)
@@ -61,6 +62,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.workspaceSlug = (user as Record<string, unknown>)
           .workspaceSlug as string;
       }
+      console.log("[auth] jwt callback returning token", token);
       return token;
     },
     async session({ session, token }) {
@@ -71,11 +73,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         (session.user as unknown as Record<string, unknown>).workspaceSlug =
           token.workspaceSlug;
       }
+      console.log("[auth] session callback returning session", session);
       return session;
     },
   },
   pages: {
     signIn: "/login",
+    signOut: "/login",
+    error: "/login",
   },
   session: {
     strategy: "jwt",
