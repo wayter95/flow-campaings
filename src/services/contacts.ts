@@ -11,6 +11,7 @@ const contactSchema = z.object({
   email: z.string().email("Email invalido"),
   firstName: z.string().optional(),
   lastName: z.string().optional(),
+  phone: z.string().optional(),
   source: z.string().optional(),
 });
 
@@ -32,6 +33,7 @@ export async function getContacts(params?: {
             { email: { contains: params.search, mode: "insensitive" as const } },
             { firstName: { contains: params.search, mode: "insensitive" as const } },
             { lastName: { contains: params.search, mode: "insensitive" as const } },
+            { phone: { contains: params.search, mode: "insensitive" as const } },
           ],
         }
       : {}),
@@ -73,6 +75,7 @@ export async function createContact(formData: FormData) {
     email: formData.get("email") as string,
     firstName: (formData.get("firstName") as string) || undefined,
     lastName: (formData.get("lastName") as string) || undefined,
+    phone: (formData.get("phone") as string) || undefined,
     source: "manual",
   };
 
@@ -106,6 +109,7 @@ export async function updateContact(id: string, formData: FormData) {
   const data = {
     firstName: (formData.get("firstName") as string) || null,
     lastName: (formData.get("lastName") as string) || null,
+    phone: (formData.get("phone") as string) || null,
   };
 
   await prisma.contact.update({

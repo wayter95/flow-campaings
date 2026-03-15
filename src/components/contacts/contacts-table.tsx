@@ -17,6 +17,7 @@ interface Contact {
   email: string;
   firstName: string | null;
   lastName: string | null;
+  phone: string | null;
   source: string | null;
   createdAt: Date;
   tags: { tag: { id: string; name: string; color: string | null } }[];

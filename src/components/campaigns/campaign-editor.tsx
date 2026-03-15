@@ -5,12 +5,13 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { createCampaign, updateCampaign } from "@/services/campaigns";
 import { HtmlCodeEditor } from "@/components/templates/html-code-editor";
 import { cn } from "@/lib/utils";
-import { X, FileCode, Variable, Copy, Check, Code, Eye, Columns2, Monitor, Smartphone, MousePointerClick, Loader2, FileText, CheckCircle2 } from "lucide-react";
+import { X, FileCode, Variable, Copy, Check, Code, Eye, Columns2, Monitor, Smartphone, MousePointerClick, Loader2, FileText, CheckCircle2, Mail, MessageCircle } from "lucide-react";
 
 const DragDropEmailEditor = lazy(() =>
   import("@/components/templates/drag-drop-email-editor").then((m) => ({ default: m.DragDropEmailEditor }))
@@ -19,6 +20,7 @@ const DragDropEmailEditor = lazy(() =>
 type EditorTab = "visual" | "code";
 type CodeViewMode = "code" | "preview" | "split";
 type PreviewDevice = "desktop" | "mobile";
+type CampaignChannel = "email" | "whatsapp";
 
 const starterTemplate = `<!DOCTYPE html>
 <html>
@@ -63,24 +65,40 @@ interface Template {
   htmlContent: string;
 }
 
+interface WhatsAppTemplate {
+  id: string;
+  name: string;
+  message: string;
+}
+
 interface CampaignEditorProps {
   campaign?: {
     id: string;
     name: string;
     subject: string | null;
     htmlContent: string | null;
+    channel?: string | null;
     templateId?: string | null;
     scheduledAt?: Date | null;
   };
   segments?: Segment[];
   selectedSegmentIds?: string[];
   templates?: Template[];
+  whatsappTemplates?: WhatsAppTemplate[];
 }
 
-const variables = [
+const emailVariables = [
   { key: "{{firstName}}", label: "Primeiro nome" },
   { key: "{{lastName}}", label: "Sobrenome" },
   { key: "{{email}}", label: "Email" },
+  { key: "{{unsubscribeUrl}}", label: "Link de descadastro" },
+];
+
+const whatsappVariables = [
+  { key: "{{firstName}}", label: "Primeiro nome" },
+  { key: "{{lastName}}", label: "Sobrenome" },
+  { key: "{{email}}", label: "Email" },
+  { key: "{{phone}}", label: "Telefone" },
 ];
 
 export function CampaignEditor({
@@ -88,20 +106,27 @@ export function CampaignEditor({
   segments = [],
   selectedSegmentIds = [],
   templates = [],
+  whatsappTemplates = [],
 }: CampaignEditorProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [channel, setChannel] = useState<CampaignChannel>((campaign?.channel as CampaignChannel) || "email");
   const [selectedSegments, setSelectedSegments] = useState<string[]>(selectedSegmentIds);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>(campaign?.templateId || "none");
   const [subject, setSubject] = useState(campaign?.subject || "");
   const [htmlContent, setHtmlContent] = useState(campaign?.htmlContent || "");
+  const [whatsappMessage, setWhatsappMessage] = useState(
+    campaign?.channel === "whatsapp" ? (campaign?.htmlContent || "") : ""
+  );
+  const [selectedWhatsAppTemplateId, setSelectedWhatsAppTemplateId] = useState<string>("none");
   const [copiedVar, setCopiedVar] = useState<string | null>(null);
   const [editorTab, setEditorTab] = useState<EditorTab>("visual");
   const [codeViewMode, setCodeViewMode] = useState<CodeViewMode>("split");
   const [previewDevice, setPreviewDevice] = useState<PreviewDevice>("desktop");
 
   const selectedTemplate = templates.find((t) => t.id === selectedTemplateId);
+  const variables = channel === "whatsapp" ? whatsappVariables : emailVariables;
 
   function toggleSegment(id: string) {
     setSelectedSegments((prev) =>
@@ -129,6 +154,22 @@ export function CampaignEditor({
     }
   }, [templates, subject, htmlContent, selectedTemplateId]);
 
+  const handleSelectWhatsAppTemplate = useCallback((templateId: string) => {
+    if (whatsappMessage.trim() && templateId !== selectedWhatsAppTemplateId &&
+        !confirm("Isso vai substituir a mensagem atual. Continuar?")) return;
+
+    setSelectedWhatsAppTemplateId(templateId);
+
+    if (templateId !== "none") {
+      const tmpl = whatsappTemplates.find((t) => t.id === templateId);
+      if (tmpl) {
+        setWhatsappMessage(tmpl.message);
+      }
+    } else {
+      setWhatsappMessage("");
+    }
+  }, [whatsappTemplates, whatsappMessage, selectedWhatsAppTemplateId]);
+
   const handleCopyVariable = useCallback((varKey: string) => {
     navigator.clipboard.writeText(varKey);
     setCopiedVar(varKey);
@@ -147,10 +188,17 @@ export function CampaignEditor({
     setLoading(true);
 
     const formData = new FormData(e.currentTarget);
-    formData.set("subject", subject);
-    formData.set("htmlContent", htmlContent);
+    formData.set("channel", channel);
 
-    if (selectedTemplateId !== "none") {
+    if (channel === "whatsapp") {
+      formData.set("htmlContent", whatsappMessage);
+      formData.delete("subject");
+    } else {
+      formData.set("subject", subject);
+      formData.set("htmlContent", htmlContent);
+    }
+
+    if (channel === "email" && selectedTemplateId !== "none") {
       formData.set("templateId", selectedTemplateId);
     }
 
@@ -186,6 +234,39 @@ export function CampaignEditor({
           {error}
         </div>
       )}
+
+      {/* Channel selector */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Canal de envio</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
+              <Button
+                type="button"
+                variant={channel === "email" ? "default" : "ghost"}
+                size="sm"
+                className="h-8 text-sm gap-2"
+                onClick={() => setChannel("email")}
+              >
+                <Mail className="h-4 w-4" />
+                Email
+              </Button>
+              <Button
+                type="button"
+                variant={channel === "whatsapp" ? "default" : "ghost"}
+                size="sm"
+                className="h-8 text-sm gap-2"
+                onClick={() => setChannel("whatsapp")}
+              >
+                <MessageCircle className="h-4 w-4" />
+                WhatsApp
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
@@ -256,7 +337,113 @@ export function CampaignEditor({
         </Card>
       )}
 
+      {/* WhatsApp content */}
+      {channel === "whatsapp" && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Mensagem do WhatsApp</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* WhatsApp template selector */}
+            {whatsappTemplates.length > 0 && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <MessageCircle className="h-4 w-4 text-muted-foreground" />
+                  <Label className="text-sm font-medium">Template de WhatsApp</Label>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleSelectWhatsAppTemplate("none")}
+                    className={cn(
+                      "px-3 py-1.5 rounded-md border-2 text-sm transition-all",
+                      selectedWhatsAppTemplateId === "none"
+                        ? "border-primary bg-primary/10 text-foreground"
+                        : "border-border bg-card text-muted-foreground hover:border-primary/50"
+                    )}
+                  >
+                    Do zero
+                  </button>
+                  {whatsappTemplates.map((tmpl) => (
+                    <button
+                      key={tmpl.id}
+                      type="button"
+                      onClick={() => handleSelectWhatsAppTemplate(tmpl.id)}
+                      className={cn(
+                        "px-3 py-1.5 rounded-md border-2 text-sm transition-all",
+                        selectedWhatsAppTemplateId === tmpl.id
+                          ? "border-primary bg-primary/10 text-foreground"
+                          : "border-border bg-card text-muted-foreground hover:border-primary/50"
+                      )}
+                    >
+                      {tmpl.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Variables bar */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <Variable className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground">Variaveis disponiveis:</span>
+              {variables.map((v) => (
+                <button
+                  key={v.key}
+                  type="button"
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-muted hover:bg-accent text-xs font-mono transition-colors"
+                  onClick={() => handleCopyVariable(v.key)}
+                  title={`Copiar ${v.key}`}
+                >
+                  {v.key}
+                  {copiedVar === v.key ? (
+                    <Check className="h-3 w-3 text-green-500" />
+                  ) : (
+                    <Copy className="h-3 w-3 text-muted-foreground" />
+                  )}
+                </button>
+              ))}
+            </div>
+
+            <div className="grid gap-6 lg:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="whatsapp-message">Mensagem *</Label>
+                <Textarea
+                  id="whatsapp-message"
+                  value={whatsappMessage}
+                  onChange={(e) => setWhatsappMessage(e.target.value)}
+                  placeholder="Digite a mensagem do WhatsApp..."
+                  rows={12}
+                  className="resize-none"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Use *texto* para negrito, _texto_ para italico, ~texto~ para tachado.
+                </p>
+              </div>
+
+              {/* WhatsApp preview bubble */}
+              <div className="space-y-2">
+                <Label>Preview</Label>
+                <div className="bg-[#e5ddd5] dark:bg-[#0b141a] rounded-lg p-4 min-h-[300px]">
+                  <div className="flex justify-end">
+                    <div className="bg-[#dcf8c6] dark:bg-[#005c4b] rounded-lg rounded-tr-none p-3 max-w-[85%] shadow-sm">
+                      <p className="text-sm text-[#111b21] dark:text-[#e9edef] whitespace-pre-wrap break-words">
+                        {whatsappMessage || "Sua mensagem aparecera aqui..."}
+                      </p>
+                      <p className="text-[10px] text-[#667781] dark:text-[#8696a0] text-right mt-1">
+                        {new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Email content */}
+      {channel === "email" && (
       <Card>
         <CardHeader>
           <CardTitle>Conteudo do email</CardTitle>
@@ -565,6 +752,7 @@ export function CampaignEditor({
           )}
         </CardContent>
       </Card>
+      )}
 
       <div className="flex justify-end gap-3">
         <Button

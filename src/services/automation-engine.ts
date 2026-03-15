@@ -6,6 +6,12 @@ import { sendEmail } from "@/lib/sendgrid";
 import { sendWhatsApp } from "@/lib/evolution";
 import { logActivity } from "@/services/activities";
 import { replaceVariables } from "@/lib/replace-variables";
+import { generateUnsubscribeUrl } from "@/lib/unsubscribe";
+
+const UNSUBSCRIBE_FOOTER = `<div style="text-align:center;padding:20px;font-size:12px;color:#999;">
+  <p>Voce esta recebendo este email porque se inscreveu em nossa lista.</p>
+  <p><a href="{{unsubscribeUrl}}" style="color:#666;">Cancelar inscricao</a></p>
+</div>`;
 
 interface TriggerConfig {
   type: "form_submitted" | "tag_added" | "contact_created" | "manual";
@@ -106,8 +112,16 @@ export async function processStep(enrollmentId: string) {
         }
       }
 
-      subject = replaceVariables(subject, contact);
-      html = replaceVariables(html, contact);
+      // Generate unsubscribe URL per contact
+      const unsubscribeUrl = generateUnsubscribeUrl(contact.id, automation.workspaceId);
+
+      // Auto-append unsubscribe footer if not already present
+      if (!html.includes("{{unsubscribeUrl}}")) {
+        html = html + UNSUBSCRIBE_FOOTER;
+      }
+
+      subject = replaceVariables(subject, contact, { unsubscribeUrl });
+      html = replaceVariables(html, contact, { unsubscribeUrl });
 
       try {
         await sendEmail({ to: contact.email, subject, html, workspaceId: automation.workspaceId });

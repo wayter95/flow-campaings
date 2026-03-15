@@ -1,10 +1,11 @@
 import { getCampaign } from "@/services/campaigns";
 import { getEmailTemplates } from "@/services/email-templates";
+import { getWhatsAppTemplates } from "@/services/whatsapp-templates";
 import { notFound } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Send, Users, Mail, MousePointer } from "lucide-react";
+import { ArrowLeft, Send, Users, Mail, MousePointer, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -16,6 +17,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { CampaignSendButton } from "@/components/campaigns/campaign-send-button";
+import { CampaignTestButton } from "@/components/campaigns/campaign-test-button";
 import { CampaignEditor } from "@/components/campaigns/campaign-editor";
 
 const statusLabels: Record<string, string> = {
@@ -33,13 +35,18 @@ export default async function CampaignDetailPage({ params }: CampaignDetailPageP
   const { id } = await params;
   const campaign = await getCampaign(id);
   if (!campaign) notFound();
-  const templates = await getEmailTemplates();
+  const [templates, whatsappTemplates] = await Promise.all([
+    getEmailTemplates(),
+    getWhatsAppTemplates(),
+  ]);
 
   const totalSent = campaign.emailLogs.filter((l) => l.status !== "queued").length;
   const totalOpened = campaign.emailLogs.filter((l) => l.openedAt).length;
   const totalClicked = campaign.emailLogs.filter((l) => l.clickedAt).length;
+  const totalBounced = campaign.emailLogs.filter((l) => l.status === "bounced").length;
   const openRate = totalSent > 0 ? ((totalOpened / totalSent) * 100).toFixed(1) : "0";
   const clickRate = totalSent > 0 ? ((totalClicked / totalSent) * 100).toFixed(1) : "0";
+  const bounceRate = totalSent > 0 ? ((totalBounced / totalSent) * 100).toFixed(1) : "0";
 
   return (
     <div className="space-y-6">
@@ -59,11 +66,14 @@ export default async function CampaignDetailPage({ params }: CampaignDetailPageP
           )}
         </div>
         {campaign.status === "draft" && (
-          <CampaignSendButton campaignId={campaign.id} />
+          <div className="flex items-center gap-2">
+            <CampaignTestButton campaignId={campaign.id} />
+            <CampaignSendButton campaignId={campaign.id} />
+          </div>
         )}
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -97,6 +107,18 @@ export default async function CampaignDetailPage({ params }: CampaignDetailPageP
             <div className="text-2xl font-bold">{clickRate}%</div>
           </CardContent>
         </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Taxa de bounce
+            </CardTitle>
+            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{bounceRate}%</div>
+            <p className="text-xs text-muted-foreground">{totalBounced} bounce(s)</p>
+          </CardContent>
+        </Card>
       </div>
 
       <Tabs defaultValue={campaign.status === "draft" ? "edit" : "logs"}>
@@ -120,6 +142,11 @@ export default async function CampaignDetailPage({ params }: CampaignDetailPageP
                 subject: t.subject,
                 htmlContent: t.htmlContent,
               }))}
+              whatsappTemplates={whatsappTemplates.map((t) => ({
+                id: t.id,
+                name: t.name,
+                message: t.message,
+              }))}
             />
           </TabsContent>
         )}
@@ -127,7 +154,27 @@ export default async function CampaignDetailPage({ params }: CampaignDetailPageP
         <TabsContent value="preview" className="mt-4">
           <Card>
             <CardContent className="pt-6">
-              {(campaign.htmlContent || campaign.template?.htmlContent) ? (
+              {campaign.channel === "whatsapp" ? (
+                campaign.htmlContent ? (
+                  <div className="flex justify-center">
+                    <div className="w-full max-w-md">
+                      <div className="bg-[#e5ddd5] dark:bg-[#0b141a] rounded-lg p-4 min-h-[200px]">
+                        <div className="flex justify-end">
+                          <div className="bg-[#dcf8c6] dark:bg-[#005c4b] rounded-lg rounded-tr-none p-3 max-w-[85%] shadow-sm">
+                            <p className="text-sm text-[#111b21] dark:text-[#e9edef] whitespace-pre-wrap break-words">
+                              {campaign.htmlContent}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-muted-foreground">
+                    Nenhuma mensagem definida.
+                  </p>
+                )
+              ) : (campaign.htmlContent || campaign.template?.htmlContent) ? (
                 <div className="flex justify-center">
                   <div className="w-full max-w-[700px] bg-white rounded shadow-sm">
                     <iframe
@@ -163,6 +210,7 @@ export default async function CampaignDetailPage({ params }: CampaignDetailPageP
                       <TableHead>Status</TableHead>
                       <TableHead>Enviado em</TableHead>
                       <TableHead>Aberto em</TableHead>
+                      <TableHead>Clicado em</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -187,6 +235,11 @@ export default async function CampaignDetailPage({ params }: CampaignDetailPageP
                         <TableCell className="text-muted-foreground">
                           {log.openedAt
                             ? new Date(log.openedAt).toLocaleString("pt-BR")
+                            : "—"}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {log.clickedAt
+                            ? new Date(log.clickedAt).toLocaleString("pt-BR")
                             : "—"}
                         </TableCell>
                       </TableRow>

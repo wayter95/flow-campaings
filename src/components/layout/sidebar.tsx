@@ -3,16 +3,17 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { Logo } from "@/components/logo";
 import {
   LayoutDashboard,
   Users,
   Mail,
   FileText,
   Settings,
-  Zap,
   Filter,
   Workflow,
   FileCode,
+  MessageCircle,
 } from "lucide-react";
 
 const navigation = [
@@ -22,6 +23,7 @@ const navigation = [
   { name: "Campanhas", href: "/campaigns", icon: Mail },
   { name: "Automacoes", href: "/automations", icon: Workflow },
   { name: "Templates", href: "/templates", icon: FileCode },
+  { name: "Templates WhatsApp", href: "/templates/whatsapp", icon: MessageCircle },
   { name: "Formularios", href: "/forms", icon: FileText },
   { name: "Configuracoes", href: "/settings", icon: Settings },
 ];
@@ -32,16 +34,15 @@ export function Sidebar() {
   return (
     <aside className="hidden md:flex md:w-64 md:flex-col border-r bg-card">
       <div className="flex h-14 items-center border-b px-6">
-        <Link href="/" className="flex items-center gap-2">
-          <Zap className="h-5 w-5 text-primary" />
-          <span className="font-semibold text-lg">Flow Campaigns</span>
-        </Link>
+        <Logo href="/" height={28} />
       </div>
       <nav className="flex-1 p-4 space-y-1">
         {navigation.map((item) => {
           const isActive =
             item.href === "/"
               ? pathname === "/"
+              : item.href === "/templates"
+              ? pathname === "/templates" || (pathname.startsWith("/templates/") && !pathname.startsWith("/templates/whatsapp"))
               : pathname.startsWith(item.href);
           return (
             <Link

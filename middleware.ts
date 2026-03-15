@@ -15,6 +15,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!api/forms|api/auth|api/cron|api/webhooks|login|register|_next/static|_next/image|favicon.ico).*)",
+    "/((?!api/forms|api/auth|api/cron|api/webhooks|api/unsubscribe|login|register|_next/static|_next/image|favicon.ico).*)",
   ],
 };

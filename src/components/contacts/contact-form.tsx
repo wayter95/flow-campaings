@@ -62,6 +62,15 @@ export function ContactForm({ onSuccess }: ContactFormProps) {
           required
         />
       </div>
+      <div className="space-y-2">
+        <Label htmlFor="phone">Telefone</Label>
+        <Input
+          id="phone"
+          name="phone"
+          type="tel"
+          placeholder="(11) 99999-9999"
+        />
+      </div>
       <Button type="submit" className="w-full" disabled={loading}>
         {loading ? "Salvando..." : "Adicionar contato"}
       </Button>

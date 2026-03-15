@@ -25,12 +25,13 @@ import { ArrowLeft, Upload, FileSpreadsheet, CheckCircle } from "lucide-react";
 import Link from "next/link";
 import { importContacts } from "@/services/import-contacts";
 
-type FieldMapping = "email" | "firstName" | "lastName" | "source" | "tags" | "ignore";
+type FieldMapping = "email" | "firstName" | "lastName" | "phone" | "source" | "tags" | "ignore";
 
 const fieldOptions: { value: FieldMapping; label: string }[] = [
   { value: "email", label: "Email" },
   { value: "firstName", label: "Nome" },
   { value: "lastName", label: "Sobrenome" },
+  { value: "phone", label: "Telefone" },
   { value: "source", label: "Origem" },
   { value: "tags", label: "Tags (separadas por virgula)" },
   { value: "ignore", label: "Ignorar" },
@@ -70,6 +71,7 @@ export default function ImportContactsPage() {
           if (lower === "email" || lower === "e-mail") return "email";
           if (lower === "nome" || lower === "first_name" || lower === "firstname" || lower === "first name") return "firstName";
           if (lower === "sobrenome" || lower === "last_name" || lower === "lastname" || lower === "last name") return "lastName";
+          if (lower === "telefone" || lower === "phone" || lower === "celular" || lower === "tel") return "phone";
           if (lower === "origem" || lower === "source") return "source";
           if (lower === "tags" || lower === "tag") return "tags";
           return "ignore";
@@ -108,7 +110,7 @@ export default function ImportContactsPage() {
           mapped[field] = row[i].trim();
         }
       });
-      return mapped as { email: string; firstName?: string; lastName?: string; source?: string; tags?: string };
+      return mapped as { email: string; firstName?: string; lastName?: string; phone?: string; source?: string; tags?: string };
     });
 
     const importResult = await importContacts(rows, duplicateAction);

@@ -30,10 +30,11 @@ model Workspace {
   segments       Segment[]
   activityLogs   ActivityLog[]
   automations    Automation[]
-  emailTemplates EmailTemplate[]
-  settings       WorkspaceSettings?
-  createdAt      DateTime           @default(now())
-  updatedAt      DateTime           @updatedAt
+  emailTemplates    EmailTemplate[]
+  whatsappTemplates WhatsAppTemplate[]
+  settings          WorkspaceSettings?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
 }
 
 model WorkspaceSettings {
@@ -116,6 +117,7 @@ model Campaign {
   name        String
   subject     String?
   htmlContent String?           @db.Text
+  channel     String            @default("email") // email, whatsapp
   status      String            @default("draft")
   scheduledAt DateTime?
   sentAt      DateTime?
@@ -283,6 +285,18 @@ model EmailTemplate {
   campaigns   Campaign[]
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
+
+  @@index([workspaceId])
+}
+
+model WhatsAppTemplate {
+  id          String    @id @default(cuid())
+  name        String
+  message     String    @db.Text
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   @@index([workspaceId])
 }

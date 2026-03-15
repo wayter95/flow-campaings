@@ -38,6 +38,7 @@ interface Contact {
   email: string;
   firstName: string | null;
   lastName: string | null;
+  phone: string | null;
   source: string | null;
   tags: { tag: ContactTag }[];
 }
@@ -140,6 +141,7 @@ function EditContactForm({
 }) {
   const [firstName, setFirstName] = useState(contact.firstName || "");
   const [lastName, setLastName] = useState(contact.lastName || "");
+  const [phone, setPhone] = useState(contact.phone || "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -151,6 +153,7 @@ function EditContactForm({
     const formData = new FormData();
     formData.set("firstName", firstName);
     formData.set("lastName", lastName);
+    formData.set("phone", phone);
 
     const result = await updateContact(contact.id, formData);
     if (result && "error" in result && result.error) {
@@ -192,6 +195,16 @@ function EditContactForm({
           value={lastName}
           onChange={(e) => setLastName(e.target.value)}
           placeholder="Sobrenome"
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="modal-phone">Telefone</Label>
+        <Input
+          id="modal-phone"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          placeholder="(11) 99999-9999"
         />
       </div>
 

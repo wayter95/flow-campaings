@@ -5,9 +5,16 @@ import { getWorkspaceId } from "@/lib/session";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { sendEmail } from "@/lib/sendgrid";
+import { sendWhatsApp } from "@/lib/evolution";
 import { logActivity } from "@/services/activities";
 import { evaluateRules, type SegmentRules } from "@/services/segments";
 import { replaceVariables } from "@/lib/replace-variables";
+import { generateUnsubscribeUrl } from "@/lib/unsubscribe";
+
+const UNSUBSCRIBE_FOOTER = `<div style="text-align:center;padding:20px;font-size:12px;color:#999;">
+  <p>Voce esta recebendo este email porque se inscreveu em nossa lista.</p>
+  <p><a href="{{unsubscribeUrl}}" style="color:#666;">Cancelar inscricao</a></p>
+</div>`;
 
 const campaignSchema = z.object({
   name: z.string().min(1, "Nome e obrigatorio"),
@@ -61,9 +68,12 @@ export async function createCampaign(formData: FormData) {
   const scheduledAtStr = formData.get("scheduledAt") as string;
   const scheduledAt = scheduledAtStr ? new Date(scheduledAtStr) : null;
 
+  const channel = (formData.get("channel") as string) || "email";
+
   const campaign = await prisma.campaign.create({
     data: {
       ...result.data,
+      channel,
       workspaceId,
       ...(templateId ? { templateId } : {}),
       ...(scheduledAt ? { scheduledAt, status: "scheduled" } : {}),
@@ -87,6 +97,7 @@ export async function updateCampaign(id: string, formData: FormData) {
   const scheduledAtStr = formData.get("scheduledAt") as string;
   const scheduledAt = scheduledAtStr ? new Date(scheduledAtStr) : null;
   const templateId = (formData.get("templateId") as string) || null;
+  const channel = (formData.get("channel") as string) || undefined;
 
   const raw = {
     name: formData.get("name") as string,
@@ -94,6 +105,7 @@ export async function updateCampaign(id: string, formData: FormData) {
     htmlContent: (formData.get("htmlContent") as string) || null,
     templateId,
     scheduledAt,
+    ...(channel ? { channel } : {}),
     ...(scheduledAt ? { status: "scheduled" } : {}),
   };
 
@@ -128,12 +140,19 @@ export async function sendCampaign(id: string) {
   if (campaign.status === "sent") return { error: "Campanha ja foi enviada" };
   if (campaign.status === "sending") return { error: "Campanha esta sendo enviada" };
 
+  const isWhatsApp = campaign.channel === "whatsapp";
+
   // Resolve subject and html: campaign fields take priority, fallback to template
   const subject = campaign.subject || campaign.template?.subject;
   const htmlContent = campaign.htmlContent || campaign.template?.htmlContent;
 
-  if (!subject) return { error: "Assunto e obrigatorio. Defina no campanha ou vincule um template." };
-  if (!htmlContent) return { error: "Conteudo do email e obrigatorio. Defina na campanha ou vincule um template." };
+  if (!isWhatsApp) {
+    if (!subject) return { error: "Assunto e obrigatorio. Defina no campanha ou vincule um template." };
+    if (!htmlContent) return { error: "Conteudo do email e obrigatorio. Defina na campanha ou vincule um template." };
+  } else {
+    // For WhatsApp, htmlContent stores the message text
+    if (!htmlContent) return { error: "Mensagem do WhatsApp e obrigatoria." };
+  }
 
   // Get contacts: from segments or all
   let contacts;
@@ -167,6 +186,12 @@ export async function sendCampaign(id: string) {
   let errorCount = 0;
 
   for (const contact of contacts) {
+    // For WhatsApp, skip contacts without phone
+    if (isWhatsApp && !contact.phone) {
+      errorCount++;
+      continue;
+    }
+
     const emailLog = await prisma.emailLog.create({
       data: {
         campaignId: id,
@@ -177,28 +202,65 @@ export async function sendCampaign(id: string) {
     });
 
     try {
-      // Replace variables per contact
-      const personalizedSubject = replaceVariables(subject, contact);
-      const personalizedHtml = replaceVariables(htmlContent, contact);
+      if (isWhatsApp) {
+        // WhatsApp send
+        const personalizedMessage = replaceVariables(htmlContent!, contact);
 
-      await sendEmail({
-        to: contact.email,
-        subject: personalizedSubject,
-        html: personalizedHtml,
-        workspaceId,
-      });
+        await sendWhatsApp({
+          to: contact.phone!,
+          message: personalizedMessage,
+          workspaceId,
+        });
 
-      await prisma.emailLog.update({
-        where: { id: emailLog.id },
-        data: { status: "sent", sentAt: new Date() },
-      });
+        await prisma.emailLog.update({
+          where: { id: emailLog.id },
+          data: { status: "sent", sentAt: new Date() },
+        });
 
-      await logActivity({
-        type: "email_sent",
-        contactId: contact.id,
-        workspaceId,
-        metadata: { campaignId: id, campaignName: campaign.name },
-      });
+        await logActivity({
+          type: "whatsapp_sent",
+          contactId: contact.id,
+          workspaceId,
+          metadata: {
+            campaignId: id,
+            campaignName: campaign.name,
+            channel: "whatsapp",
+          },
+        });
+      } else {
+        // Email send
+        // Generate unsubscribe URL per contact
+        const unsubscribeUrl = generateUnsubscribeUrl(contact.id, workspaceId);
+
+        // Auto-append unsubscribe footer if not already present
+        let finalHtml = htmlContent!;
+        if (!finalHtml.includes("{{unsubscribeUrl}}")) {
+          finalHtml = finalHtml + UNSUBSCRIBE_FOOTER;
+        }
+
+        // Replace variables per contact
+        const personalizedSubject = replaceVariables(subject!, contact, { unsubscribeUrl });
+        const personalizedHtml = replaceVariables(finalHtml, contact, { unsubscribeUrl });
+
+        await sendEmail({
+          to: contact.email,
+          subject: personalizedSubject,
+          html: personalizedHtml,
+          workspaceId,
+        });
+
+        await prisma.emailLog.update({
+          where: { id: emailLog.id },
+          data: { status: "sent", sentAt: new Date() },
+        });
+
+        await logActivity({
+          type: "email_sent",
+          contactId: contact.id,
+          workspaceId,
+          metadata: { campaignId: id, campaignName: campaign.name },
+        });
+      }
 
       sentCount++;
     } catch {
@@ -218,4 +280,74 @@ export async function sendCampaign(id: string) {
   revalidatePath("/campaigns");
   revalidatePath(`/campaigns/${id}`);
   return { success: true, sentCount, errorCount };
+}
+
+export async function sendTestEmail(campaignId: string, testEmail: string) {
+  const workspaceId = await getWorkspaceId();
+
+  const campaign = await prisma.campaign.findFirst({
+    where: { id: campaignId, workspaceId },
+    include: { template: true },
+  });
+
+  if (!campaign) return { error: "Campanha nao encontrada" };
+
+  const subject = campaign.subject || campaign.template?.subject;
+  const htmlContent = campaign.htmlContent || campaign.template?.htmlContent;
+
+  if (!subject) return { error: "Assunto e obrigatorio. Defina na campanha ou vincule um template." };
+  if (!htmlContent) return { error: "Conteudo do email e obrigatorio. Defina na campanha ou vincule um template." };
+
+  const mockContact = {
+    email: testEmail,
+    firstName: "Teste",
+    lastName: "Usuario",
+    phone: "",
+  };
+
+  try {
+    const personalizedSubject = replaceVariables(subject, mockContact);
+    const personalizedHtml = replaceVariables(htmlContent, mockContact);
+
+    await sendEmail({
+      to: testEmail,
+      subject: `[TESTE] ${personalizedSubject}`,
+      html: personalizedHtml,
+      workspaceId,
+    });
+
+    return { success: true };
+  } catch {
+    return { error: "Falha ao enviar email de teste. Verifique suas configuracoes de email." };
+  }
+}
+
+export async function getCampaignsWithMetrics() {
+  const workspaceId = await getWorkspaceId();
+  const campaigns = await prisma.campaign.findMany({
+    where: { workspaceId },
+    include: {
+      template: { select: { id: true, name: true } },
+      emailLogs: {
+        select: { status: true, openedAt: true },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return campaigns.map((campaign) => {
+    const totalSent = campaign.emailLogs.filter((l) => l.status !== "queued").length;
+    const totalOpened = campaign.emailLogs.filter((l) => l.openedAt).length;
+    const openRate = totalSent > 0 ? ((totalOpened / totalSent) * 100).toFixed(1) : null;
+    return {
+      id: campaign.id,
+      name: campaign.name,
+      status: campaign.status,
+      sentAt: campaign.sentAt,
+      createdAt: campaign.createdAt,
+      template: campaign.template,
+      totalSent,
+      openRate,
+    };
+  });
 }

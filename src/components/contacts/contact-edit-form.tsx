@@ -14,6 +14,7 @@ interface ContactEditFormProps {
     email: string;
     firstName: string | null;
     lastName: string | null;
+    phone: string | null;
     source: string | null;
     unsubscribed: boolean;
   };
@@ -27,6 +28,7 @@ export function ContactEditForm({ contact }: ContactEditFormProps) {
   const [error, setError] = useState("");
   const [firstName, setFirstName] = useState(contact.firstName || "");
   const [lastName, setLastName] = useState(contact.lastName || "");
+  const [phone, setPhone] = useState(contact.phone || "");
 
   async function handleSave() {
     setError("");
@@ -35,6 +37,7 @@ export function ContactEditForm({ contact }: ContactEditFormProps) {
     const formData = new FormData();
     formData.set("firstName", firstName);
     formData.set("lastName", lastName);
+    formData.set("phone", phone);
 
     const result = await updateContact(contact.id, formData);
 
@@ -56,6 +59,7 @@ export function ContactEditForm({ contact }: ContactEditFormProps) {
   function handleCancel() {
     setFirstName(contact.firstName || "");
     setLastName(contact.lastName || "");
+    setPhone(contact.phone || "");
     setEditing(false);
     setError("");
   }
@@ -74,6 +78,10 @@ export function ContactEditForm({ contact }: ContactEditFormProps) {
         <div>
           <p className="text-sm text-muted-foreground">Sobrenome</p>
           <p className="font-medium">{contact.lastName || "—"}</p>
+        </div>
+        <div>
+          <p className="text-sm text-muted-foreground">Telefone</p>
+          <p className="font-medium">{contact.phone || "—"}</p>
         </div>
         <div>
           <p className="text-sm text-muted-foreground">Origem</p>
@@ -128,6 +136,16 @@ export function ContactEditForm({ contact }: ContactEditFormProps) {
           value={lastName}
           onChange={(e) => setLastName(e.target.value)}
           placeholder="Sobrenome"
+        />
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="edit-phone" className="text-sm text-muted-foreground">Telefone</Label>
+        <Input
+          id="edit-phone"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          placeholder="(11) 99999-9999"
         />
       </div>
 

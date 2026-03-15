@@ -83,7 +83,7 @@ export function DragDropEmailEditor({ value, onChange }: DragDropEmailEditorProp
     const emitChange = () => {
       clearTimeout(changeTimer);
       changeTimer = setTimeout(() => {
-        if (editor.isDestroyed?.()) return;
+        if ((editor as unknown as Record<string, unknown>).destroyed) return;
         const html = getFullHtml(editor);
         if (html !== null) {
           lastEmittedRef.current = html;

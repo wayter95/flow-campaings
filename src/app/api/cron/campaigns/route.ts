@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/sendgrid";
+import { sendWhatsApp } from "@/lib/evolution";
 import { logActivity } from "@/services/activities";
+import { replaceVariables } from "@/lib/replace-variables";
 
 export async function GET(request: NextRequest) {
   // Optional: verify cron secret
@@ -25,7 +27,10 @@ export async function GET(request: NextRequest) {
   let totalSent = 0;
 
   for (const campaign of campaigns) {
-    if (!campaign.subject || !campaign.htmlContent) continue;
+    const isWhatsApp = campaign.channel === "whatsapp";
+
+    if (!isWhatsApp && (!campaign.subject || !campaign.htmlContent)) continue;
+    if (isWhatsApp && !campaign.htmlContent) continue;
 
     await prisma.campaign.update({
       where: { id: campaign.id },
@@ -37,6 +42,9 @@ export async function GET(request: NextRequest) {
     });
 
     for (const contact of contacts) {
+      // Skip contacts without phone for WhatsApp campaigns
+      if (isWhatsApp && !contact.phone) continue;
+
       const emailLog = await prisma.emailLog.create({
         data: {
           campaignId: campaign.id,
@@ -47,24 +55,49 @@ export async function GET(request: NextRequest) {
       });
 
       try {
-        await sendEmail({
-          to: contact.email,
-          subject: campaign.subject,
-          html: campaign.htmlContent,
-          workspaceId: campaign.workspaceId,
-        });
+        if (isWhatsApp) {
+          const personalizedMessage = replaceVariables(campaign.htmlContent!, contact);
 
-        await prisma.emailLog.update({
-          where: { id: emailLog.id },
-          data: { status: "sent", sentAt: new Date() },
-        });
+          await sendWhatsApp({
+            to: contact.phone!,
+            message: personalizedMessage,
+            workspaceId: campaign.workspaceId,
+          });
 
-        await logActivity({
-          type: "email_sent",
-          contactId: contact.id,
-          workspaceId: campaign.workspaceId,
-          metadata: { campaignId: campaign.id, campaignName: campaign.name },
-        });
+          await prisma.emailLog.update({
+            where: { id: emailLog.id },
+            data: { status: "sent", sentAt: new Date() },
+          });
+
+          await logActivity({
+            type: "whatsapp_sent",
+            contactId: contact.id,
+            workspaceId: campaign.workspaceId,
+            metadata: { campaignId: campaign.id, campaignName: campaign.name, channel: "whatsapp" },
+          });
+        } else {
+          const personalizedSubject = replaceVariables(campaign.subject!, contact);
+          const personalizedHtml = replaceVariables(campaign.htmlContent!, contact);
+
+          await sendEmail({
+            to: contact.email,
+            subject: personalizedSubject,
+            html: personalizedHtml,
+            workspaceId: campaign.workspaceId,
+          });
+
+          await prisma.emailLog.update({
+            where: { id: emailLog.id },
+            data: { status: "sent", sentAt: new Date() },
+          });
+
+          await logActivity({
+            type: "email_sent",
+            contactId: contact.id,
+            workspaceId: campaign.workspaceId,
+            metadata: { campaignId: campaign.id, campaignName: campaign.name },
+          });
+        }
 
         totalSent++;
       } catch {

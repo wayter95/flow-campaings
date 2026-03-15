@@ -9,6 +9,7 @@ interface ImportRow {
   email: string;
   firstName?: string;
   lastName?: string;
+  phone?: string;
   source?: string;
   tags?: string;
 }
@@ -58,6 +59,7 @@ export async function importContacts(
           data: {
             ...(row.firstName ? { firstName: row.firstName.trim() } : {}),
             ...(row.lastName ? { lastName: row.lastName.trim() } : {}),
+            ...(row.phone ? { phone: row.phone.trim() } : {}),
             ...(row.source ? { source: row.source.trim() } : {}),
           },
         });
@@ -74,6 +76,7 @@ export async function importContacts(
             email,
             firstName: row.firstName?.trim() || null,
             lastName: row.lastName?.trim() || null,
+            phone: row.phone?.trim() || null,
             source: row.source?.trim() || "csv_import",
             workspaceId,
           },
