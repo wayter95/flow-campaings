@@ -7,18 +7,11 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 function createPrismaClient() {
-  const connectionString = process.env.DATABASE_URL!;
-
-  // Parse DATABASE_URL explicitly and pass individual params to pg.Pool
-  // to avoid PrismaPg "(not available)" credentials bug in standalone builds.
-  const url = new URL(connectionString);
+  // Pass DATABASE_URL as-is to pg.Pool — pg v8.x handles sslmode=verify-full
+  // natively and ignores unknown params like channel_binding.
+  // Using explicit pg.Pool with serverExternalPackages avoids bundling issues.
   const pool = new pg.Pool({
-    user: decodeURIComponent(url.username),
-    password: decodeURIComponent(url.password),
-    host: url.hostname,
-    port: url.port ? parseInt(url.port) : 5432,
-    database: url.pathname.slice(1),
-    ssl: true,
+    connectionString: process.env.DATABASE_URL!,
     max: 10,
     idleTimeoutMillis: 60_000,
     connectionTimeoutMillis: 15_000,
