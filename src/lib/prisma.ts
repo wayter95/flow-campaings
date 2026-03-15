@@ -7,20 +7,17 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 function createPrismaClient() {
-  // Debug: log DATABASE_URL host to verify runtime env is correct
-  const dbUrl = process.env.DATABASE_URL!;
-  try {
-    const parsed = new URL(dbUrl);
-    console.log(`[prisma] Connecting to host: ${parsed.hostname}, user: ${parsed.username.substring(0, 3)}***, db: ${parsed.pathname.slice(1)}`);
-  } catch {
-    console.log(`[prisma] DATABASE_URL parse error, length: ${dbUrl?.length}`);
-  }
+  // Strip channel_binding=require from the URL — the Neon pooler (PgBouncer)
+  // does not support channel binding, causing SCRAM auth to fail.
+  // Keep sslmode=verify-full intact as pg v8.x handles it correctly.
+  let connStr = process.env.DATABASE_URL!;
+  connStr = connStr
+    .replace(/[&?]channel_binding=require/, "")
+    .replace(/\?&/, "?")
+    .replace(/[?&]$/, "");
 
-  // Pass DATABASE_URL as-is to pg.Pool — pg v8.x handles sslmode=verify-full
-  // natively and ignores unknown params like channel_binding.
-  // Using explicit pg.Pool with serverExternalPackages avoids bundling issues.
   const pool = new pg.Pool({
-    connectionString: dbUrl,
+    connectionString: connStr,
     max: 10,
     idleTimeoutMillis: 60_000,
     connectionTimeoutMillis: 15_000,
