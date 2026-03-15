@@ -1,6 +1,5 @@
 import { PrismaClient } from "@/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { Pool } from "pg";
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
@@ -13,9 +12,9 @@ function createPrismaClient() {
     .replace("channel_binding=require", "");
   connectionString = connectionString.replace(/[&?]$/, "").replace("?&", "?");
 
-  // Create an explicit pg.Pool to avoid PrismaPg "(not available)"
-  // credentials bug in Next.js standalone builds
-  const pool = new Pool({
+  // Pass connectionString as PoolConfig property so pg driver parses
+  // credentials itself — avoids PrismaPg "(not available)" bug in standalone builds
+  const adapter = new PrismaPg({
     connectionString,
     ssl: { rejectUnauthorized: false },
     max: 10,
@@ -23,7 +22,6 @@ function createPrismaClient() {
     connectionTimeoutMillis: 15_000,
     allowExitOnIdle: true,
   });
-  const adapter = new PrismaPg(pool);
   return new PrismaClient({ adapter });
 }
 
