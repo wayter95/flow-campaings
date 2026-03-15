@@ -49,7 +49,8 @@ export default function LoginPage() {
       // Fallback: authorize passou mas resposta inesperada
       router.push("/");
       router.refresh();
-    } catch {
+    } catch (error) {
+      console.error("Error", error);
       setError("Erro ao conectar. Tente novamente.");
       setLoading(false);
     }
