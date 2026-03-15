@@ -8,8 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Logo } from "@/components/logo";
-import { Mail, Lock } from "lucide-react";
+import { Mail } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -70,18 +71,21 @@ export default function LoginPage() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Senha</Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="password"
-                  name="password"
-                  type="password"
-                  placeholder="••••••"
-                  className="pl-10"
-                  required
-                />
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password">Senha</Label>
+                <Link
+                  href="/forgot-password"
+                  className="text-xs text-muted-foreground hover:text-primary transition-colors"
+                >
+                  Esqueceu a senha?
+                </Link>
               </div>
+              <PasswordInput
+                id="password"
+                name="password"
+                placeholder="••••••"
+                required
+              />
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? "Entrando..." : "Entrar"}

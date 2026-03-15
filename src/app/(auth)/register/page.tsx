@@ -8,8 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Logo } from "@/components/logo";
-import { Mail, Lock, User } from "lucide-react";
+import { Mail, User } from "lucide-react";
 import { registerUser } from "@/services/auth";
 
 export default function RegisterPage() {
@@ -93,18 +94,13 @@ export default function RegisterPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Senha</Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="password"
-                  name="password"
-                  type="password"
-                  placeholder="Minimo 6 caracteres"
-                  className="pl-10"
-                  minLength={6}
-                  required
-                />
-              </div>
+              <PasswordInput
+                id="password"
+                name="password"
+                placeholder="Minimo 6 caracteres"
+                minLength={6}
+                required
+              />
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? "Criando conta..." : "Criar conta"}
