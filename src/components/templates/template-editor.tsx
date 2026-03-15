@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { createEmailTemplate, updateEmailTemplate } from "@/services/email-templates";
 import { HtmlCodeEditor } from "./html-code-editor";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import {
   Code,
   Eye,
@@ -77,6 +78,7 @@ const starterTemplate = `<!DOCTYPE html>
 
 export function TemplateEditor({ template }: TemplateEditorProps) {
   const router = useRouter();
+  const { confirm } = useConfirm();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [htmlContent, setHtmlContent] = useState(template?.htmlContent || "");
@@ -93,10 +95,17 @@ export function TemplateEditor({ template }: TemplateEditorProps) {
     setTimeout(() => setCopiedVar(null), 1500);
   }, []);
 
-  const handleUseStarter = useCallback(() => {
-    if (htmlContent.trim() && !confirm("Isso vai substituir o conteudo atual. Continuar?")) return;
+  const handleUseStarter = useCallback(async () => {
+    if (htmlContent.trim()) {
+      const ok = await confirm({
+        title: "Substituir conteudo",
+        description: "Isso vai substituir o conteudo atual. Continuar?",
+        confirmLabel: "Substituir",
+      });
+      if (!ok) return;
+    }
     setHtmlContent(starterTemplate);
-  }, [htmlContent]);
+  }, [htmlContent, confirm]);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();

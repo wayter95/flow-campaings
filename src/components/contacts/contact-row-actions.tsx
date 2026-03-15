@@ -20,6 +20,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, Pencil, Trash2, Tags, X, Plus } from "lucide-react";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import {
   updateContact,
   deleteContact,
@@ -55,6 +56,7 @@ interface ContactRowActionsProps {
 
 export function ContactRowActions({ contact, allTags }: ContactRowActionsProps) {
   const router = useRouter();
+  const { confirm } = useConfirm();
   const [editOpen, setEditOpen] = useState(false);
   const [tagsOpen, setTagsOpen] = useState(false);
 
@@ -116,7 +118,13 @@ export function ContactRowActions({ contact, allTags }: ContactRowActionsProps) 
           <DropdownMenuItem
             className="text-destructive focus:text-destructive"
             onClick={async () => {
-              if (!confirm("Tem certeza que deseja excluir este contato?")) return;
+              const ok = await confirm({
+                title: "Excluir contato",
+                description: "Tem certeza que deseja excluir este contato?",
+                confirmLabel: "Excluir",
+                variant: "destructive",
+              });
+              if (!ok) return;
               await deleteContact(contact.id);
               router.refresh();
             }}

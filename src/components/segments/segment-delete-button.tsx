@@ -4,12 +4,20 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Trash2 } from "lucide-react";
 import { deleteSegment } from "@/services/segments";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 export function SegmentDeleteButton({ segmentId }: { segmentId: string }) {
   const router = useRouter();
+  const { confirm } = useConfirm();
 
   async function handleDelete() {
-    if (!confirm("Tem certeza que deseja excluir este segmento?")) return;
+    const ok = await confirm({
+      title: "Excluir segmento",
+      description: "Tem certeza que deseja excluir este segmento?",
+      confirmLabel: "Excluir",
+      variant: "destructive",
+    });
+    if (!ok) return;
     await deleteSegment(segmentId);
     router.refresh();
   }

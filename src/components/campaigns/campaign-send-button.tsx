@@ -5,24 +5,40 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Send } from "lucide-react";
 import { sendCampaign } from "@/services/campaigns";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 export function CampaignSendButton({ campaignId }: { campaignId: string }) {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const { confirm, alert } = useConfirm();
 
   async function handleSend() {
-    if (!confirm("Tem certeza que deseja enviar esta campanha agora?")) return;
+    const ok = await confirm({
+      title: "Enviar campanha",
+      description: "Tem certeza que deseja enviar esta campanha agora?",
+      confirmLabel: "Enviar agora",
+      variant: "default",
+    });
+    if (!ok) return;
 
     setLoading(true);
     const result = await sendCampaign(campaignId);
 
     if (result.error) {
-      alert(result.error);
+      await alert({
+        title: "Erro ao enviar",
+        description: result.error,
+        variant: "destructive",
+      });
       setLoading(false);
       return;
     }
 
-    alert(`Campanha enviada! ${result.sentCount} emails enviados.`);
+    await alert({
+      title: "Campanha enviada!",
+      description: `${result.sentCount} emails enviados com sucesso.`,
+      variant: "success",
+    });
     router.refresh();
     setLoading(false);
   }

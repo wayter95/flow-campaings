@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { updateContact, deleteContact } from "@/services/contacts";
 import { Pencil, Trash2, X, Check } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 interface ContactEditFormProps {
   contact: {
@@ -22,6 +23,7 @@ interface ContactEditFormProps {
 
 export function ContactEditForm({ contact }: ContactEditFormProps) {
   const router = useRouter();
+  const { confirm } = useConfirm();
   const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -50,7 +52,13 @@ export function ContactEditForm({ contact }: ContactEditFormProps) {
   }
 
   async function handleDelete() {
-    if (!confirm("Tem certeza que deseja excluir este contato? Esta acao nao pode ser desfeita.")) return;
+    const ok = await confirm({
+      title: "Excluir contato",
+      description: "Tem certeza que deseja excluir este contato? Esta acao nao pode ser desfeita.",
+      confirmLabel: "Excluir",
+      variant: "destructive",
+    });
+    if (!ok) return;
     setDeleting(true);
     await deleteContact(contact.id);
     router.push("/contacts");

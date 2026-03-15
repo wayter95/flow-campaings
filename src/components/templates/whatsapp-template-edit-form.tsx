@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, Variable, Copy, Check, Trash2 } from "lucide-react";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import Link from "next/link";
 import { updateWhatsAppTemplate, deleteWhatsAppTemplate } from "@/services/whatsapp-templates";
 
@@ -28,6 +29,7 @@ interface WhatsAppTemplateEditFormProps {
 
 export function WhatsAppTemplateEditForm({ template }: WhatsAppTemplateEditFormProps) {
   const router = useRouter();
+  const { confirm } = useConfirm();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState(template.message);
@@ -59,7 +61,13 @@ export function WhatsAppTemplateEditForm({ template }: WhatsAppTemplateEditFormP
   }
 
   async function handleDelete() {
-    if (!confirm("Tem certeza que deseja excluir este template?")) return;
+    const ok = await confirm({
+      title: "Excluir template",
+      description: "Tem certeza que deseja excluir este template de WhatsApp?",
+      confirmLabel: "Excluir",
+      variant: "destructive",
+    });
+    if (!ok) return;
     await deleteWhatsAppTemplate(template.id);
     router.push("/templates/whatsapp");
   }

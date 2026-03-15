@@ -4,12 +4,20 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Trash2 } from "lucide-react";
 import { deleteCampaign } from "@/services/campaigns";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 export function CampaignDeleteButton({ campaignId }: { campaignId: string }) {
   const router = useRouter();
+  const { confirm } = useConfirm();
 
   async function handleDelete() {
-    if (!confirm("Tem certeza que deseja excluir esta campanha?")) return;
+    const ok = await confirm({
+      title: "Excluir campanha",
+      description: "Tem certeza que deseja excluir esta campanha?",
+      confirmLabel: "Excluir",
+      variant: "destructive",
+    });
+    if (!ok) return;
     await deleteCampaign(campaignId);
     router.refresh();
   }

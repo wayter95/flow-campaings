@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { createCampaign, updateCampaign } from "@/services/campaigns";
 import { HtmlCodeEditor } from "@/components/templates/html-code-editor";
 import { cn } from "@/lib/utils";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { X, FileCode, Variable, Copy, Check, Code, Eye, Columns2, Monitor, Smartphone, MousePointerClick, Loader2, FileText, CheckCircle2, Mail, MessageCircle } from "lucide-react";
 
 const DragDropEmailEditor = lazy(() =>
@@ -109,6 +110,7 @@ export function CampaignEditor({
   whatsappTemplates = [],
 }: CampaignEditorProps) {
   const router = useRouter();
+  const { confirm } = useConfirm();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [channel, setChannel] = useState<CampaignChannel>((campaign?.channel as CampaignChannel) || "email");
@@ -134,11 +136,17 @@ export function CampaignEditor({
     );
   }
 
-  const handleSelectTemplate = useCallback((templateId: string | null) => {
+  const handleSelectTemplate = useCallback(async (templateId: string | null) => {
     if (!templateId) return;
     const hasContent = subject.trim() || htmlContent.trim();
-    if (hasContent && templateId !== selectedTemplateId &&
-        !confirm("Isso vai substituir o assunto e conteudo atuais. Continuar?")) return;
+    if (hasContent && templateId !== selectedTemplateId) {
+      const ok = await confirm({
+        title: "Substituir conteudo",
+        description: "Isso vai substituir o assunto e conteudo atuais. Continuar?",
+        confirmLabel: "Substituir",
+      });
+      if (!ok) return;
+    }
 
     setSelectedTemplateId(templateId);
 
@@ -152,11 +160,17 @@ export function CampaignEditor({
       setSubject("");
       setHtmlContent("");
     }
-  }, [templates, subject, htmlContent, selectedTemplateId]);
+  }, [templates, subject, htmlContent, selectedTemplateId, confirm]);
 
-  const handleSelectWhatsAppTemplate = useCallback((templateId: string) => {
-    if (whatsappMessage.trim() && templateId !== selectedWhatsAppTemplateId &&
-        !confirm("Isso vai substituir a mensagem atual. Continuar?")) return;
+  const handleSelectWhatsAppTemplate = useCallback(async (templateId: string) => {
+    if (whatsappMessage.trim() && templateId !== selectedWhatsAppTemplateId) {
+      const ok = await confirm({
+        title: "Substituir mensagem",
+        description: "Isso vai substituir a mensagem atual. Continuar?",
+        confirmLabel: "Substituir",
+      });
+      if (!ok) return;
+    }
 
     setSelectedWhatsAppTemplateId(templateId);
 
@@ -168,7 +182,7 @@ export function CampaignEditor({
     } else {
       setWhatsappMessage("");
     }
-  }, [whatsappTemplates, whatsappMessage, selectedWhatsAppTemplateId]);
+  }, [whatsappTemplates, whatsappMessage, selectedWhatsAppTemplateId, confirm]);
 
   const handleCopyVariable = useCallback((varKey: string) => {
     navigator.clipboard.writeText(varKey);
@@ -176,11 +190,17 @@ export function CampaignEditor({
     setTimeout(() => setCopiedVar(null), 1500);
   }, []);
 
-  const handleUseStarter = useCallback(() => {
-    if ((subject.trim() || htmlContent.trim()) &&
-        !confirm("Isso vai substituir o conteudo atual. Continuar?")) return;
+  const handleUseStarter = useCallback(async () => {
+    if (subject.trim() || htmlContent.trim()) {
+      const ok = await confirm({
+        title: "Substituir conteudo",
+        description: "Isso vai substituir o conteudo atual. Continuar?",
+        confirmLabel: "Substituir",
+      });
+      if (!ok) return;
+    }
     setHtmlContent(starterTemplate);
-  }, [htmlContent, subject]);
+  }, [htmlContent, subject, confirm]);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();

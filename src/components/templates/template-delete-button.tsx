@@ -4,12 +4,20 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Trash2 } from "lucide-react";
 import { deleteEmailTemplate } from "@/services/email-templates";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 export function TemplateDeleteButton({ templateId }: { templateId: string }) {
   const router = useRouter();
+  const { confirm } = useConfirm();
 
   async function handleDelete() {
-    if (!confirm("Tem certeza que deseja excluir este template?")) return;
+    const ok = await confirm({
+      title: "Excluir template",
+      description: "Tem certeza que deseja excluir este template?",
+      confirmLabel: "Excluir",
+      variant: "destructive",
+    });
+    if (!ok) return;
     await deleteEmailTemplate(templateId);
     router.push("/templates");
   }

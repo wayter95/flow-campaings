@@ -4,12 +4,20 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Trash2 } from "lucide-react";
 import { deleteAutomation } from "@/services/automations";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 export function AutomationDeleteButton({ automationId }: { automationId: string }) {
   const router = useRouter();
+  const { confirm } = useConfirm();
 
   async function handleDelete() {
-    if (!confirm("Tem certeza que deseja excluir esta automacao?")) return;
+    const ok = await confirm({
+      title: "Excluir automacao",
+      description: "Tem certeza que deseja excluir esta automacao?",
+      confirmLabel: "Excluir",
+      variant: "destructive",
+    });
+    if (!ok) return;
     await deleteAutomation(automationId);
     router.push("/automations");
   }

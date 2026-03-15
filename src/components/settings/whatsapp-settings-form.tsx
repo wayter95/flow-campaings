@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { saveWhatsAppSettings, removeWhatsAppApiKey } from "@/services/settings";
 import { MessageCircle, Eye, EyeOff, Trash2, CheckCircle2, AlertCircle } from "lucide-react";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 interface WhatsAppSettingsFormProps {
   initialData: {
@@ -18,6 +19,7 @@ interface WhatsAppSettingsFormProps {
 }
 
 export function WhatsAppSettingsForm({ initialData }: WhatsAppSettingsFormProps) {
+  const { confirm } = useConfirm();
   const [evolutionApiUrl, setEvolutionApiUrl] = useState(initialData.evolutionApiUrl);
   const [evolutionInstance, setEvolutionInstance] = useState(initialData.evolutionInstance);
   const [apiKey, setApiKey] = useState("");
@@ -52,7 +54,13 @@ export function WhatsAppSettingsForm({ initialData }: WhatsAppSettingsFormProps)
   }
 
   async function handleRemoveKey() {
-    if (!confirm("Tem certeza que deseja remover a API key? O envio de WhatsApp será desativado.")) return;
+    const ok = await confirm({
+      title: "Remover API key",
+      description: "Tem certeza que deseja remover a API key? O envio de WhatsApp sera desativado.",
+      confirmLabel: "Remover",
+      variant: "destructive",
+    });
+    if (!ok) return;
 
     setRemoving(true);
     setMessage(null);

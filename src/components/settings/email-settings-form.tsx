@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { saveEmailSettings, removeApiKey } from "@/services/settings";
 import { Shield, Eye, EyeOff, Trash2, CheckCircle2, AlertCircle } from "lucide-react";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 interface EmailSettingsFormProps {
   initialData: {
@@ -18,6 +19,7 @@ interface EmailSettingsFormProps {
 }
 
 export function EmailSettingsForm({ initialData }: EmailSettingsFormProps) {
+  const { confirm } = useConfirm();
   const [senderEmail, setSenderEmail] = useState(initialData.senderEmail);
   const [senderName, setSenderName] = useState(initialData.senderName);
   const [apiKey, setApiKey] = useState("");
@@ -52,7 +54,13 @@ export function EmailSettingsForm({ initialData }: EmailSettingsFormProps) {
   }
 
   async function handleRemoveKey() {
-    if (!confirm("Tem certeza que deseja remover a API key? O envio de emails será desativado.")) return;
+    const ok = await confirm({
+      title: "Remover API key",
+      description: "Tem certeza que deseja remover a API key? O envio de emails sera desativado.",
+      confirmLabel: "Remover",
+      variant: "destructive",
+    });
+    if (!ok) return;
 
     setRemoving(true);
     setMessage(null);
