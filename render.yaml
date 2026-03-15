@@ -1,0 +1,23 @@
+# Render Blueprint — deploy workers as a background worker service
+# https://docs.render.com/blueprint-spec
+
+services:
+  - type: worker
+    name: flow-campaigns-workers
+    runtime: docker
+    dockerfilePath: ./Dockerfile.workers
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: SENDGRID_API_KEY
+        sync: false
+      - key: EVOLUTION_API_URL
+        sync: false
+      - key: EVOLUTION_API_KEY
+        sync: false
+      - key: EVOLUTION_INSTANCE
+        sync: false
+      - key: REDIS_PREFIX
+        value: "flow-campaigns:"

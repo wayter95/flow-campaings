@@ -35,8 +35,8 @@ export function CampaignSendButton({ campaignId }: { campaignId: string }) {
     }
 
     await alert({
-      title: "Campanha enviada!",
-      description: `${result.sentCount} emails enviados com sucesso.`,
+      title: "Campanha em envio!",
+      description: `${result.sentCount} mensagens na fila de envio. O progresso sera atualizado automaticamente.`,
       variant: "success",
     });
     router.refresh();

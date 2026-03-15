@@ -1,16 +1,15 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { sendEmail } from "@/lib/sendgrid";
-import { sendWhatsApp } from "@/lib/evolution";
-import { logActivity } from "@/services/activities";
-import { replaceVariables } from "@/lib/replace-variables";
-import { generateUnsubscribeUrl } from "@/lib/unsubscribe";
+import { getAutomationStepQueue } from "@/lib/queue";
 
-const UNSUBSCRIBE_FOOTER = `<div style="text-align:center;padding:20px;font-size:12px;color:#999;">
-  <p>Voce esta recebendo este email porque se inscreveu em nossa lista.</p>
-  <p><a href="{{unsubscribeUrl}}" style="color:#666;">Cancelar inscricao</a></p>
-</div>`;
+/**
+ * Automation engine — refactored to use BullMQ queues.
+ *
+ * enrollContact() creates the enrollment and enqueues the first step.
+ * processDelayedSteps() finds overdue enrollments and enqueues them.
+ * Actual step execution is handled by the automation-step worker.
+ */
 
 interface TriggerConfig {
   type: "form_submitted" | "tag_added" | "contact_created" | "manual";
@@ -18,41 +17,41 @@ interface TriggerConfig {
   tagId?: string;
 }
 
-interface SendEmailConfig {
-  subject: string;
-  htmlContent: string;
-  templateId?: string;
-}
-
-interface SendWhatsAppConfig {
-  message: string;
-}
-
-interface DelayConfig {
-  duration: number;
-  unit: "minutes" | "hours" | "days";
-}
-
-interface TagConfig {
-  tagId: string;
-}
-
-interface ConditionConfig {
-  field: string;
-  op: string;
-  value: string;
-  trueStep: number;
-  falseStep: number;
-}
-
-type StepConfig = SendEmailConfig | SendWhatsAppConfig | DelayConfig | TagConfig | ConditionConfig;
-
+/**
+ * Enrolls a contact in an automation and enqueues the first step.
+ * If already enrolled but stuck (active + step 0 + no nextRunAt), re-enqueues the job.
+ */
 export async function enrollContact(automationId: string, contactId: string) {
   const existing = await prisma.automationEnrollment.findUnique({
     where: { contactId_automationId: { contactId, automationId } },
   });
 
-  if (existing) return existing;
+  if (existing) {
+    // If enrollment is stuck at step 0 with no pending delay, re-enqueue
+    const isStuck =
+      existing.status === "active" &&
+      existing.currentStep === 0 &&
+      !existing.nextRunAt;
+
+    if (isStuck) {
+      try {
+        await getAutomationStepQueue().add(
+          `retry-enroll-${existing.id}`,
+          { enrollmentId: existing.id },
+          { jobId: `retry-${existing.id}` } // prevent duplicate jobs
+        );
+        console.log(
+          `[automation-engine] Re-enqueued stuck enrollment ${existing.id}`
+        );
+      } catch (err) {
+        console.error(
+          `[automation-engine] Failed to re-enqueue enrollment ${existing.id}:`,
+          err
+        );
+      }
+    }
+    return existing;
+  }
 
   const enrollment = await prisma.automationEnrollment.create({
     data: {
@@ -63,250 +62,62 @@ export async function enrollContact(automationId: string, contactId: string) {
     },
   });
 
-  // Start processing immediately
-  await processStep(enrollment.id);
+  // Enqueue first step as a BullMQ job
+  try {
+    await getAutomationStepQueue().add(
+      `enroll-${enrollment.id}`,
+      { enrollmentId: enrollment.id }
+    );
+  } catch (err) {
+    console.error(
+      `[automation-engine] Failed to enqueue first step for enrollment ${enrollment.id}:`,
+      err
+    );
+  }
 
   return enrollment;
 }
 
-export async function processStep(enrollmentId: string) {
-  const enrollment = await prisma.automationEnrollment.findUnique({
-    where: { id: enrollmentId },
+/**
+ * Dispatches a trigger to all matching automations.
+ * Called from form submission, tag events, etc.
+ */
+export async function dispatchTrigger(
+  type: TriggerConfig["type"],
+  payload: { contactId: string; formId?: string; tagId?: string },
+  workspaceId: string
+) {
+  const automations = await prisma.automation.findMany({
+    where: {
+      workspaceId,
+      status: "active",
+    },
     include: {
-      automation: { include: { steps: { orderBy: { order: "asc" } } } },
-      contact: { include: { tags: { include: { tag: true } } } },
+      steps: { orderBy: { order: "asc" }, take: 1 },
     },
   });
 
-  if (!enrollment || enrollment.status !== "active") return;
+  let enrolled = 0;
 
-  const { automation, contact } = enrollment;
-  const steps = automation.steps;
+  for (const automation of automations) {
+    const trigger = automation.trigger as unknown as TriggerConfig;
+    if (!trigger || trigger.type !== type) continue;
 
-  if (enrollment.currentStep >= steps.length) {
-    await prisma.automationEnrollment.update({
-      where: { id: enrollmentId },
-      data: { status: "completed" },
-    });
-    return;
+    // Match specific trigger conditions
+    if (type === "form_submitted" && trigger.formId && trigger.formId !== payload.formId) continue;
+    if (type === "tag_added" && trigger.tagId && trigger.tagId !== payload.tagId) continue;
+
+    await enrollContact(automation.id, payload.contactId);
+    enrolled++;
   }
 
-  const step = steps[enrollment.currentStep];
-  const config = step.config as unknown as StepConfig;
-
-  switch (step.type) {
-    case "send_email": {
-      if (contact.unsubscribed) {
-        await advanceStep(enrollmentId, enrollment.currentStep + 1, steps.length);
-        break;
-      }
-
-      const emailConfig = config as SendEmailConfig;
-      let subject = emailConfig.subject;
-      let html = emailConfig.htmlContent;
-
-      // If using a template, fetch it
-      if (emailConfig.templateId) {
-        const template = await prisma.emailTemplate.findUnique({
-          where: { id: emailConfig.templateId },
-        });
-        if (template) {
-          subject = template.subject;
-          html = template.htmlContent;
-        }
-      }
-
-      // Generate unsubscribe URL per contact
-      const unsubscribeUrl = generateUnsubscribeUrl(contact.id, automation.workspaceId);
-
-      // Auto-append unsubscribe footer if not already present
-      if (!html.includes("{{unsubscribeUrl}}")) {
-        html = html + UNSUBSCRIBE_FOOTER;
-      }
-
-      subject = replaceVariables(subject, contact, { unsubscribeUrl });
-      html = replaceVariables(html, contact, { unsubscribeUrl });
-
-      try {
-        await sendEmail({ to: contact.email, subject, html, workspaceId: automation.workspaceId });
-        await logActivity({
-          type: "email_sent",
-          contactId: contact.id,
-          workspaceId: automation.workspaceId,
-          metadata: { automationId: automation.id, automationName: automation.name },
-        });
-      } catch {
-        await prisma.automationEnrollment.update({
-          where: { id: enrollmentId },
-          data: { status: "failed" },
-        });
-        return;
-      }
-
-      await advanceStep(enrollmentId, enrollment.currentStep + 1, steps.length);
-      break;
-    }
-
-    case "send_whatsapp": {
-      const whatsappConfig = config as SendWhatsAppConfig;
-      const phone = contact.phone;
-
-      if (!phone) {
-        console.warn(`Contato ${contact.id} não tem número de telefone. Pulando envio WhatsApp.`);
-        await advanceStep(enrollmentId, enrollment.currentStep + 1, steps.length);
-        break;
-      }
-
-      const personalizedMessage = replaceVariables(whatsappConfig.message, contact);
-
-      try {
-        await sendWhatsApp({
-          to: phone,
-          message: personalizedMessage,
-          workspaceId: automation.workspaceId,
-        });
-        await logActivity({
-          type: "whatsapp_sent",
-          contactId: contact.id,
-          workspaceId: automation.workspaceId,
-          metadata: { automationId: automation.id, automationName: automation.name },
-        });
-      } catch {
-        await prisma.automationEnrollment.update({
-          where: { id: enrollmentId },
-          data: { status: "failed" },
-        });
-        return;
-      }
-
-      await advanceStep(enrollmentId, enrollment.currentStep + 1, steps.length);
-      break;
-    }
-
-    case "delay": {
-      const delayConfig = config as DelayConfig;
-      const now = new Date();
-      let nextRunAt: Date;
-
-      switch (delayConfig.unit) {
-        case "minutes":
-          nextRunAt = new Date(now.getTime() + delayConfig.duration * 60 * 1000);
-          break;
-        case "hours":
-          nextRunAt = new Date(now.getTime() + delayConfig.duration * 60 * 60 * 1000);
-          break;
-        case "days":
-          nextRunAt = new Date(now.getTime() + delayConfig.duration * 24 * 60 * 60 * 1000);
-          break;
-      }
-
-      await prisma.automationEnrollment.update({
-        where: { id: enrollmentId },
-        data: {
-          currentStep: enrollment.currentStep + 1,
-          nextRunAt,
-        },
-      });
-      break;
-    }
-
-    case "add_tag": {
-      const tagConfig = config as TagConfig;
-      const existingTag = await prisma.contactTag.findFirst({
-        where: { contactId: contact.id, tagId: tagConfig.tagId },
-      });
-
-      if (!existingTag) {
-        await prisma.contactTag.create({
-          data: { contactId: contact.id, tagId: tagConfig.tagId },
-        });
-        await logActivity({
-          type: "tag_added",
-          contactId: contact.id,
-          workspaceId: automation.workspaceId,
-          metadata: { tagId: tagConfig.tagId, automationId: automation.id },
-        });
-      }
-
-      await advanceStep(enrollmentId, enrollment.currentStep + 1, steps.length);
-      break;
-    }
-
-    case "remove_tag": {
-      const tagConfig = config as TagConfig;
-      const contactTag = await prisma.contactTag.findFirst({
-        where: { contactId: contact.id, tagId: tagConfig.tagId },
-      });
-
-      if (contactTag) {
-        await prisma.contactTag.delete({ where: { id: contactTag.id } });
-        await logActivity({
-          type: "tag_removed",
-          contactId: contact.id,
-          workspaceId: automation.workspaceId,
-          metadata: { tagId: tagConfig.tagId, automationId: automation.id },
-        });
-      }
-
-      await advanceStep(enrollmentId, enrollment.currentStep + 1, steps.length);
-      break;
-    }
-
-    case "condition": {
-      const condConfig = config as ConditionConfig;
-      const matches = evaluateCondition(condConfig, contact);
-      const nextStep = matches ? condConfig.trueStep : condConfig.falseStep;
-
-      await advanceStep(enrollmentId, nextStep, steps.length);
-      break;
-    }
-  }
+  return { enrolled };
 }
 
-async function advanceStep(enrollmentId: string, nextStep: number, totalSteps: number) {
-  if (nextStep >= totalSteps) {
-    await prisma.automationEnrollment.update({
-      where: { id: enrollmentId },
-      data: { status: "completed", currentStep: nextStep },
-    });
-  } else {
-    await prisma.automationEnrollment.update({
-      where: { id: enrollmentId },
-      data: { currentStep: nextStep, nextRunAt: null },
-    });
-    // Continue processing next step immediately
-    await processStep(enrollmentId);
-  }
-}
-
-function evaluateCondition(
-  config: ConditionConfig,
-  contact: { tags: { tag: { name: string; id: string } }[]; email: string; firstName: string | null; lastName: string | null; source: string | null; unsubscribed: boolean }
-): boolean {
-  const { field, op, value } = config;
-
-  switch (field) {
-    case "tag": {
-      const hasTag = contact.tags.some((ct) =>
-        ct.tag.name.toLowerCase().includes(value.toLowerCase())
-      );
-      if (op === "contains") return hasTag;
-      if (op === "not_contains") return !hasTag;
-      return false;
-    }
-    case "email": {
-      if (op === "contains") return contact.email.toLowerCase().includes(value.toLowerCase());
-      if (op === "not_contains") return !contact.email.toLowerCase().includes(value.toLowerCase());
-      if (op === "equals") return contact.email.toLowerCase() === value.toLowerCase();
-      return false;
-    }
-    case "unsubscribed":
-      return contact.unsubscribed === (value === "true");
-    default:
-      return false;
-  }
-}
-
+/**
+ * Finds enrollments with overdue delayed steps and enqueues them.
+ * Called by the cron route as a safety net (BullMQ delays handle most cases).
+ */
 export async function processDelayedSteps() {
   const now = new Date();
 
@@ -318,9 +129,21 @@ export async function processDelayedSteps() {
     take: 100,
   });
 
+  const queue = getAutomationStepQueue();
   let processed = 0;
+
   for (const enrollment of enrollments) {
-    await processStep(enrollment.id);
+    await queue.add(
+      `delayed-recovery-${enrollment.id}`,
+      { enrollmentId: enrollment.id }
+    );
+
+    // Clear nextRunAt so it's not re-enqueued
+    await prisma.automationEnrollment.update({
+      where: { id: enrollment.id },
+      data: { nextRunAt: null },
+    });
+
     processed++;
   }
 

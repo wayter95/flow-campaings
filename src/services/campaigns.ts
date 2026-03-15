@@ -5,11 +5,10 @@ import { getWorkspaceId } from "@/lib/session";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { sendEmail } from "@/lib/sendgrid";
-import { sendWhatsApp } from "@/lib/evolution";
-import { logActivity } from "@/services/activities";
 import { evaluateRules, type SegmentRules } from "@/services/segments";
 import { replaceVariables } from "@/lib/replace-variables";
 import { generateUnsubscribeUrl } from "@/lib/unsubscribe";
+import { getCampaignSendQueue } from "@/lib/queue";
 
 const UNSUBSCRIBE_FOOTER = `<div style="text-align:center;padding:20px;font-size:12px;color:#999;">
   <p>Voce esta recebendo este email porque se inscreveu em nossa lista.</p>
@@ -170,14 +169,13 @@ export async function sendCampaign(id: string) {
   const isWhatsApp = campaign.channel === "whatsapp";
 
   // Resolve subject and html: campaign fields take priority, fallback to template
-  const subject = campaign.subject || campaign.template?.subject;
-  const htmlContent = campaign.htmlContent || campaign.template?.htmlContent;
+  const subject = campaign.subject || campaign.template?.subject || "";
+  const htmlContent = campaign.htmlContent || campaign.template?.htmlContent || "";
 
   if (!isWhatsApp) {
     if (!subject) return { error: "Assunto e obrigatorio. Defina no campanha ou vincule um template." };
     if (!htmlContent) return { error: "Conteudo do email e obrigatorio. Defina na campanha ou vincule um template." };
   } else {
-    // For WhatsApp, htmlContent stores the message text
     if (!htmlContent) return { error: "Mensagem do WhatsApp e obrigatoria." };
   }
 
@@ -189,7 +187,6 @@ export async function sendCampaign(id: string) {
         evaluateRules(cs.segment.rules as unknown as SegmentRules, workspaceId)
       )
     );
-    // Deduplicate by contact id
     const seen = new Set<string>();
     contacts = allSegmentContacts.flat().filter((c) => {
       if (seen.has(c.id) || c.unsubscribed) return false;
@@ -202,114 +199,66 @@ export async function sendCampaign(id: string) {
     });
   }
 
-  if (contacts.length === 0) return { error: "Nenhum contato para enviar" };
-
-  let sentCount = 0;
-  let errorCount = 0;
-
-  try {
-    for (const contact of contacts) {
-      // For WhatsApp, skip contacts without phone
-      if (isWhatsApp && !contact.phone) {
-        errorCount++;
-        continue;
-      }
-
-      const emailLog = await prisma.emailLog.create({
-        data: {
-          campaignId: id,
-          contactId: contact.id,
-          workspaceId,
-          status: "queued",
-        },
-      });
-
-      try {
-        if (isWhatsApp) {
-          // WhatsApp send
-          const personalizedMessage = replaceVariables(htmlContent!, contact);
-
-          await sendWhatsApp({
-            to: contact.phone!,
-            message: personalizedMessage,
-            workspaceId,
-          });
-
-          await prisma.emailLog.update({
-            where: { id: emailLog.id },
-            data: { status: "sent", sentAt: new Date() },
-          });
-
-          await logActivity({
-            type: "whatsapp_sent",
-            contactId: contact.id,
-            workspaceId,
-            metadata: {
-              campaignId: id,
-              campaignName: campaign.name,
-              channel: "whatsapp",
-            },
-          });
-        } else {
-          // Email send
-          // Generate unsubscribe URL per contact
-          const unsubscribeUrl = generateUnsubscribeUrl(contact.id, workspaceId);
-
-          // Auto-append unsubscribe footer if not already present
-          let finalHtml = htmlContent!;
-          if (!finalHtml.includes("{{unsubscribeUrl}}")) {
-            finalHtml = finalHtml + UNSUBSCRIBE_FOOTER;
-          }
-
-          // Replace variables per contact
-          const personalizedSubject = replaceVariables(subject!, contact, { unsubscribeUrl });
-          const personalizedHtml = replaceVariables(finalHtml, contact, { unsubscribeUrl });
-
-          await sendEmail({
-            to: contact.email,
-            subject: personalizedSubject,
-            html: personalizedHtml,
-            workspaceId,
-          });
-
-          await prisma.emailLog.update({
-            where: { id: emailLog.id },
-            data: { status: "sent", sentAt: new Date() },
-          });
-
-          await logActivity({
-            type: "email_sent",
-            contactId: contact.id,
-            workspaceId,
-            metadata: { campaignId: id, campaignName: campaign.name },
-          });
-        }
-
-        sentCount++;
-      } catch {
-        await prisma.emailLog.update({
-          where: { id: emailLog.id },
-          data: { status: "bounced" },
-        });
-        errorCount++;
-      }
-    }
-  } catch (error) {
-    await prisma.campaign.update({
-      where: { id },
-      data: { status: "draft" },
-    });
-    return { error: "Erro durante o envio. A campanha foi revertida para rascunho." };
+  if (contacts.length === 0) {
+    await prisma.campaign.update({ where: { id }, data: { status: "draft" } });
+    return { error: "Nenhum contato para enviar" };
   }
 
-  await prisma.campaign.update({
-    where: { id },
-    data: { status: "sent", sentAt: new Date() },
-  });
+  // Filter: WhatsApp needs phone
+  const validContacts = isWhatsApp
+    ? contacts.filter((c) => c.phone)
+    : contacts;
+
+  if (validContacts.length === 0) {
+    await prisma.campaign.update({ where: { id }, data: { status: "draft" } });
+    return { error: "Nenhum contato valido para enviar" };
+  }
+
+  // Enqueue send jobs via BullMQ (non-blocking!)
+  const queue = getCampaignSendQueue();
+  const BATCH_SIZE = 100;
+  let enqueued = 0;
+
+  for (let i = 0; i < validContacts.length; i += BATCH_SIZE) {
+    const batch = validContacts.slice(i, i + BATCH_SIZE);
+
+    // Create EmailLog records in batch
+    const emailLogs = await prisma.emailLog.createManyAndReturn({
+      data: batch.map((c) => ({
+        campaignId: id,
+        contactId: c.id,
+        workspaceId,
+        status: "queued" as const,
+      })),
+    });
+
+    // Enqueue send jobs
+    const jobs = emailLogs.map((log, idx) => ({
+      name: `send-${id}-${batch[idx].id}`,
+      data: {
+        campaignId: id,
+        contactId: batch[idx].id,
+        workspaceId,
+        emailLogId: log.id,
+        channel: (isWhatsApp ? "whatsapp" : "email") as "email" | "whatsapp",
+        subject: isWhatsApp ? undefined : subject,
+        htmlContent,
+        campaignName: campaign.name,
+      },
+    }));
+
+    await queue.addBulk(jobs);
+    enqueued += jobs.length;
+  }
 
   revalidatePath("/campaigns");
   revalidatePath(`/campaigns/${id}`);
-  return { success: true, sentCount, errorCount };
+  return {
+    success: true,
+    sentCount: enqueued,
+    errorCount: 0,
+    queued: true,
+  };
 }
 
 export async function sendTestEmail(campaignId: string, testEmail: string) {
