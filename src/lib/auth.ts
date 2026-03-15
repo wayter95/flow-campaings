@@ -1,7 +1,7 @@
+import { prisma } from "@/lib/prisma";
+import bcrypt from "bcryptjs";
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import bcrypt from "bcryptjs";
-import { prisma } from "@/lib/prisma";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
@@ -25,16 +25,22 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           },
         });
 
+        console.log("user", user);
+
         if (!user) return null;
 
         const passwordMatch = await bcrypt.compare(
           credentials.password as string,
-          user.password
+          user.password,
         );
+
+        console.log("passwordMatch", passwordMatch);
 
         if (!passwordMatch) return null;
 
         const workspace = user.workspaces[0]?.workspace;
+
+        console.log("workspace", workspace);
 
         return {
           id: user.id,
@@ -50,16 +56,20 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
-        token.workspaceId = (user as Record<string, unknown>).workspaceId as string;
-        token.workspaceSlug = (user as Record<string, unknown>).workspaceSlug as string;
+        token.workspaceId = (user as Record<string, unknown>)
+          .workspaceId as string;
+        token.workspaceSlug = (user as Record<string, unknown>)
+          .workspaceSlug as string;
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string;
-        (session.user as unknown as Record<string, unknown>).workspaceId = token.workspaceId;
-        (session.user as unknown as Record<string, unknown>).workspaceSlug = token.workspaceSlug;
+        (session.user as unknown as Record<string, unknown>).workspaceId =
+          token.workspaceId;
+        (session.user as unknown as Record<string, unknown>).workspaceSlug =
+          token.workspaceSlug;
       }
       return session;
     },
