@@ -20,14 +20,14 @@ RUN \
     npm install; \
   fi
 
-# Generate Prisma client
-RUN npx prisma generate
-
 # Build Next.js
 FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+
+# Generate Prisma client (needs source tree for custom output path)
+RUN npx prisma generate
 
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
