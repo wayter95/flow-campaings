@@ -32,6 +32,8 @@ export default function LoginPage() {
         callbackUrl: "/",
       });
 
+      console.log("result", result);
+
       if (result?.error) {
         setError("Email ou senha incorretos");
         setLoading(false);
