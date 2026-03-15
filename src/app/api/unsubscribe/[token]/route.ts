@@ -3,6 +3,10 @@ import { prisma } from "@/lib/prisma";
 import { parseUnsubscribeToken } from "@/lib/unsubscribe";
 import { logActivity } from "@/services/activities";
 
+function escapeHtml(str: string): string {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ token: string }> }
@@ -115,7 +119,7 @@ function errorHtml(message: string): string {
       </svg>
     </div>
     <h1>Erro</h1>
-    <p>${message}</p>
+    <p>${escapeHtml(message)}</p>
   </div>
 </body>
 </html>`;

@@ -38,6 +38,10 @@ export async function createEmailTemplate(formData: FormData) {
 }
 
 export async function updateEmailTemplate(id: string, formData: FormData) {
+  const workspaceId = await getWorkspaceId();
+  const existing = await prisma.emailTemplate.findFirst({ where: { id, workspaceId } });
+  if (!existing) return { error: "Template nao encontrado" };
+
   const name = formData.get("name") as string;
   const subject = formData.get("subject") as string;
   const htmlContent = formData.get("htmlContent") as string;
@@ -56,6 +60,10 @@ export async function updateEmailTemplate(id: string, formData: FormData) {
 }
 
 export async function deleteEmailTemplate(id: string) {
+  const workspaceId = await getWorkspaceId();
+  const existing = await prisma.emailTemplate.findFirst({ where: { id, workspaceId } });
+  if (!existing) return { error: "Template nao encontrado" };
+
   await prisma.emailTemplate.delete({ where: { id } });
   revalidatePath("/templates");
   return { success: true };

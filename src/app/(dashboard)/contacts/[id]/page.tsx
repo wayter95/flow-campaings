@@ -38,6 +38,9 @@ export default async function ContactDetailPage({ params }: ContactDetailPagePro
               : contact.email}
           </h1>
           <p className="text-muted-foreground">{contact.email}</p>
+          {contact.phone && (
+            <p className="text-muted-foreground text-sm">{contact.phone}</p>
+          )}
           {contact.unsubscribed && (
             <Badge variant="destructive" className="mt-1">Descadastrado</Badge>
           )}

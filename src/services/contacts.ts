@@ -106,11 +106,26 @@ export async function createContact(formData: FormData) {
 export async function updateContact(id: string, formData: FormData) {
   const workspaceId = await getWorkspaceId();
 
-  const data = {
+  const contact = await prisma.contact.findFirst({ where: { id, workspaceId } });
+  if (!contact) return { error: "Contato nao encontrado" };
+
+  const email = formData.get("email") as string;
+
+  const data: Record<string, string | null> = {
     firstName: (formData.get("firstName") as string) || null,
     lastName: (formData.get("lastName") as string) || null,
     phone: (formData.get("phone") as string) || null,
   };
+
+  if (email && contact.email !== email) {
+    const existing = await prisma.contact.findFirst({
+      where: { email, workspaceId, NOT: { id } },
+    });
+    if (existing) {
+      return { error: "Outro contato com este email ja existe" };
+    }
+    data.email = email;
+  }
 
   await prisma.contact.update({
     where: { id },
@@ -124,6 +139,9 @@ export async function updateContact(id: string, formData: FormData) {
 
 export async function deleteContact(id: string) {
   const workspaceId = await getWorkspaceId();
+
+  const contact = await prisma.contact.findFirst({ where: { id, workspaceId } });
+  if (!contact) return { error: "Contato nao encontrado" };
 
   await prisma.contact.delete({
     where: { id },

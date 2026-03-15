@@ -105,7 +105,19 @@ export async function updateForm(id: string, formData: FormData) {
     return { error: result.error.issues[0].message };
   }
 
+  const form = await prisma.form.findFirst({ where: { id, workspaceId } });
+  if (!form) return { error: "Formulario nao encontrado" };
+
   const fieldsJson = formData.get("fields") as string;
+
+  let parsedFields: { label: string; type: string; required: boolean; options?: string[] }[] | null = null;
+  if (fieldsJson) {
+    try {
+      parsedFields = JSON.parse(fieldsJson);
+    } catch {
+      return { error: "Campos invalidos" };
+    }
+  }
 
   await prisma.$transaction(async (tx) => {
     await tx.form.update({
@@ -113,11 +125,10 @@ export async function updateForm(id: string, formData: FormData) {
       data: result.data,
     });
 
-    if (fieldsJson) {
-      const fields = JSON.parse(fieldsJson);
+    if (parsedFields) {
       await tx.formField.deleteMany({ where: { formId: id } });
       await tx.formField.createMany({
-        data: fields.map((field: { label: string; type: string; required: boolean; options?: string[] }, index: number) => ({
+        data: parsedFields.map((field, index) => ({
           formId: id,
           label: field.label,
           type: field.type,
@@ -135,6 +146,10 @@ export async function updateForm(id: string, formData: FormData) {
 }
 
 export async function deleteForm(id: string) {
+  const workspaceId = await getWorkspaceId();
+  const form = await prisma.form.findFirst({ where: { id, workspaceId } });
+  if (!form) return { error: "Formulario nao encontrado" };
+
   await prisma.form.delete({ where: { id } });
   revalidatePath("/forms");
   return { success: true };
@@ -166,11 +181,17 @@ export async function submitFormPublic(formId: string, data: Record<string, stri
   }
 
   const emailField = form.fields.find((f) => f.type === "email");
-  const email = emailField ? data[emailField.label] : null;
+  const email = emailField ? data[emailField.label]?.trim() : null;
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const isValidEmail = email && emailRegex.test(email);
 
   let contactId: string | null = null;
 
-  if (email) {
+  if (isValidEmail) {
+    const phone =
+      data["Telefone"] || data["phone"] || data["Phone"] || data["Celular"] || data["WhatsApp"] || null;
+
     const contact = await prisma.contact.upsert({
       where: {
         email_workspaceId: { email, workspaceId: form.workspaceId },
@@ -179,6 +200,7 @@ export async function submitFormPublic(formId: string, data: Record<string, stri
         email,
         firstName: data["Nome"] || data["name"] || null,
         lastName: data["Sobrenome"] || data["lastName"] || null,
+        phone,
         source: "form",
         workspaceId: form.workspaceId,
       },

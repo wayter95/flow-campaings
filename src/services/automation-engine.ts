@@ -1,7 +1,6 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { Prisma } from "@/generated/prisma/client";
 import { sendEmail } from "@/lib/sendgrid";
 import { sendWhatsApp } from "@/lib/evolution";
 import { logActivity } from "@/services/activities";
@@ -97,6 +96,11 @@ export async function processStep(enrollmentId: string) {
 
   switch (step.type) {
     case "send_email": {
+      if (contact.unsubscribed) {
+        await advanceStep(enrollmentId, enrollment.currentStep + 1, steps.length);
+        break;
+      }
+
       const emailConfig = config as SendEmailConfig;
       let subject = emailConfig.subject;
       let html = emailConfig.htmlContent;
@@ -286,10 +290,13 @@ function evaluateCondition(
       const hasTag = contact.tags.some((ct) =>
         ct.tag.name.toLowerCase().includes(value.toLowerCase())
       );
-      return op === "contains" ? hasTag : !hasTag;
+      if (op === "contains") return hasTag;
+      if (op === "not_contains") return !hasTag;
+      return false;
     }
     case "email": {
       if (op === "contains") return contact.email.toLowerCase().includes(value.toLowerCase());
+      if (op === "not_contains") return !contact.email.toLowerCase().includes(value.toLowerCase());
       if (op === "equals") return contact.email.toLowerCase() === value.toLowerCase();
       return false;
     }

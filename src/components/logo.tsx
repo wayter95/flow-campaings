@@ -34,7 +34,7 @@ export function Logo({ className, href = "/", height = 28 }: LogoProps) {
 
   if (href) {
     return (
-      <Link href={href} className="flex items-center">
+      <Link href={href} className="flex w-full items-center justify-center">
         {img}
       </Link>
     );

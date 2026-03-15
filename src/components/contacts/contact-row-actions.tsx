@@ -139,6 +139,7 @@ function EditContactForm({
   contact: Contact;
   onDone: () => void;
 }) {
+  const [email, setEmail] = useState(contact.email);
   const [firstName, setFirstName] = useState(contact.firstName || "");
   const [lastName, setLastName] = useState(contact.lastName || "");
   const [phone, setPhone] = useState(contact.phone || "");
@@ -151,6 +152,7 @@ function EditContactForm({
     setError("");
 
     const formData = new FormData();
+    formData.set("email", email);
     formData.set("firstName", firstName);
     formData.set("lastName", lastName);
     formData.set("phone", phone);
@@ -173,9 +175,15 @@ function EditContactForm({
         </div>
       )}
 
-      <div>
-        <p className="text-sm text-muted-foreground">Email</p>
-        <p className="font-medium">{contact.email}</p>
+      <div className="space-y-2">
+        <Label htmlFor="modal-email">Email</Label>
+        <Input
+          id="modal-email"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="email@exemplo.com"
+        />
       </div>
 
       <div className="space-y-2">

@@ -13,7 +13,7 @@ const triggerSchema = z.object({
 });
 
 const stepSchema = z.object({
-  type: z.enum(["send_email", "delay", "add_tag", "remove_tag", "condition"]),
+  type: z.enum(["send_email", "send_whatsapp", "delay", "add_tag", "remove_tag", "condition"]),
   config: z.record(z.string(), z.unknown()),
   order: z.number(),
 });
@@ -92,6 +92,10 @@ export async function createAutomation(formData: FormData) {
 }
 
 export async function updateAutomation(id: string, formData: FormData) {
+  const workspaceId = await getWorkspaceId();
+  const existing = await prisma.automation.findFirst({ where: { id, workspaceId } });
+  if (!existing) return { error: "Automacao nao encontrada" };
+
   const name = formData.get("name") as string;
   const triggerJson = formData.get("trigger") as string;
   const stepsJson = formData.get("steps") as string;
@@ -136,13 +140,18 @@ export async function updateAutomation(id: string, formData: FormData) {
 }
 
 export async function deleteAutomation(id: string) {
+  const workspaceId = await getWorkspaceId();
+  const automation = await prisma.automation.findFirst({ where: { id, workspaceId } });
+  if (!automation) return { error: "Automacao nao encontrada" };
+
   await prisma.automation.delete({ where: { id } });
   revalidatePath("/automations");
   return { success: true };
 }
 
 export async function toggleAutomationStatus(id: string) {
-  const automation = await prisma.automation.findUnique({ where: { id } });
+  const workspaceId = await getWorkspaceId();
+  const automation = await prisma.automation.findFirst({ where: { id, workspaceId } });
   if (!automation) return { error: "Automacao nao encontrada" };
 
   const newStatus = automation.status === "active" ? "inactive" : "active";
@@ -163,6 +172,10 @@ export async function saveFlowData(
   trigger: { type: string; formId?: string; tagId?: string },
   steps: { type: string; config: Record<string, unknown>; order: number }[]
 ) {
+  const workspaceId = await getWorkspaceId();
+  const existing = await prisma.automation.findFirst({ where: { id, workspaceId } });
+  if (!existing) return { error: "Automacao nao encontrada" };
+
   // Delete existing steps and recreate
   await prisma.automationStep.deleteMany({ where: { automationId: id } });
 

@@ -2,7 +2,7 @@ import { getCampaignsWithMetrics } from "@/services/campaigns";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Mail, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Mail, MessageCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import {
   Table,
@@ -88,9 +88,14 @@ export default async function CampaignsPage({ searchParams }: CampaignsPageProps
                         <TableCell>
                           <Link
                             href={`/campaigns/${campaign.id}`}
-                            className="font-medium hover:underline"
+                            className="font-medium hover:underline inline-flex items-center gap-2"
                           >
                             {campaign.name}
+                            {campaign.channel === "whatsapp" ? (
+                              <MessageCircle className="h-3.5 w-3.5 text-green-500" />
+                            ) : (
+                              <Mail className="h-3.5 w-3.5 text-muted-foreground" />
+                            )}
                           </Link>
                         </TableCell>
                         <TableCell>

@@ -68,6 +68,10 @@ export async function createCampaign(formData: FormData) {
   const scheduledAtStr = formData.get("scheduledAt") as string;
   const scheduledAt = scheduledAtStr ? new Date(scheduledAtStr) : null;
 
+  if (scheduledAt && scheduledAt < new Date()) {
+    return { error: "A data de agendamento deve ser no futuro" };
+  }
+
   const channel = (formData.get("channel") as string) || "email";
 
   const campaign = await prisma.campaign.create({
@@ -94,8 +98,21 @@ export async function createCampaign(formData: FormData) {
 }
 
 export async function updateCampaign(id: string, formData: FormData) {
+  const workspaceId = await getWorkspaceId();
+
+  const existing = await prisma.campaign.findFirst({ where: { id, workspaceId } });
+  if (!existing) return { error: "Campanha nao encontrada" };
+  if (existing.status === "sent" || existing.status === "sending") {
+    return { error: "Nao e possivel editar uma campanha ja enviada" };
+  }
+
   const scheduledAtStr = formData.get("scheduledAt") as string;
   const scheduledAt = scheduledAtStr ? new Date(scheduledAtStr) : null;
+
+  if (scheduledAt && scheduledAt < new Date()) {
+    return { error: "A data de agendamento deve ser no futuro" };
+  }
+
   const templateId = (formData.get("templateId") as string) || null;
   const channel = (formData.get("channel") as string) || undefined;
 
@@ -120,6 +137,9 @@ export async function updateCampaign(id: string, formData: FormData) {
 }
 
 export async function deleteCampaign(id: string) {
+  const workspaceId = await getWorkspaceId();
+  const campaign = await prisma.campaign.findFirst({ where: { id, workspaceId } });
+  if (!campaign) return { error: "Campanha nao encontrada" };
   await prisma.campaign.delete({ where: { id } });
   revalidatePath("/campaigns");
   return { success: true };
@@ -127,6 +147,15 @@ export async function deleteCampaign(id: string) {
 
 export async function sendCampaign(id: string) {
   const workspaceId = await getWorkspaceId();
+
+  // Atomic status transition to prevent double sends
+  const updated = await prisma.campaign.updateMany({
+    where: { id, workspaceId, status: { in: ["draft", "scheduled"] } },
+    data: { status: "sending" },
+  });
+  if (updated.count === 0) {
+    return { error: "Campanha ja foi enviada ou esta sendo enviada" };
+  }
 
   const campaign = await prisma.campaign.findFirst({
     where: { id, workspaceId },
@@ -137,8 +166,6 @@ export async function sendCampaign(id: string) {
   });
 
   if (!campaign) return { error: "Campanha nao encontrada" };
-  if (campaign.status === "sent") return { error: "Campanha ja foi enviada" };
-  if (campaign.status === "sending") return { error: "Campanha esta sendo enviada" };
 
   const isWhatsApp = campaign.channel === "whatsapp";
 
@@ -177,99 +204,102 @@ export async function sendCampaign(id: string) {
 
   if (contacts.length === 0) return { error: "Nenhum contato para enviar" };
 
-  await prisma.campaign.update({
-    where: { id },
-    data: { status: "sending" },
-  });
-
   let sentCount = 0;
   let errorCount = 0;
 
-  for (const contact of contacts) {
-    // For WhatsApp, skip contacts without phone
-    if (isWhatsApp && !contact.phone) {
-      errorCount++;
-      continue;
-    }
-
-    const emailLog = await prisma.emailLog.create({
-      data: {
-        campaignId: id,
-        contactId: contact.id,
-        workspaceId,
-        status: "queued",
-      },
-    });
-
-    try {
-      if (isWhatsApp) {
-        // WhatsApp send
-        const personalizedMessage = replaceVariables(htmlContent!, contact);
-
-        await sendWhatsApp({
-          to: contact.phone!,
-          message: personalizedMessage,
-          workspaceId,
-        });
-
-        await prisma.emailLog.update({
-          where: { id: emailLog.id },
-          data: { status: "sent", sentAt: new Date() },
-        });
-
-        await logActivity({
-          type: "whatsapp_sent",
-          contactId: contact.id,
-          workspaceId,
-          metadata: {
-            campaignId: id,
-            campaignName: campaign.name,
-            channel: "whatsapp",
-          },
-        });
-      } else {
-        // Email send
-        // Generate unsubscribe URL per contact
-        const unsubscribeUrl = generateUnsubscribeUrl(contact.id, workspaceId);
-
-        // Auto-append unsubscribe footer if not already present
-        let finalHtml = htmlContent!;
-        if (!finalHtml.includes("{{unsubscribeUrl}}")) {
-          finalHtml = finalHtml + UNSUBSCRIBE_FOOTER;
-        }
-
-        // Replace variables per contact
-        const personalizedSubject = replaceVariables(subject!, contact, { unsubscribeUrl });
-        const personalizedHtml = replaceVariables(finalHtml, contact, { unsubscribeUrl });
-
-        await sendEmail({
-          to: contact.email,
-          subject: personalizedSubject,
-          html: personalizedHtml,
-          workspaceId,
-        });
-
-        await prisma.emailLog.update({
-          where: { id: emailLog.id },
-          data: { status: "sent", sentAt: new Date() },
-        });
-
-        await logActivity({
-          type: "email_sent",
-          contactId: contact.id,
-          workspaceId,
-          metadata: { campaignId: id, campaignName: campaign.name },
-        });
+  try {
+    for (const contact of contacts) {
+      // For WhatsApp, skip contacts without phone
+      if (isWhatsApp && !contact.phone) {
+        errorCount++;
+        continue;
       }
 
-      sentCount++;
-    } catch {
-      await prisma.emailLog.update({
-        where: { id: emailLog.id },
-        data: { status: "bounced" },
+      const emailLog = await prisma.emailLog.create({
+        data: {
+          campaignId: id,
+          contactId: contact.id,
+          workspaceId,
+          status: "queued",
+        },
       });
-      errorCount++;
+
+      try {
+        if (isWhatsApp) {
+          // WhatsApp send
+          const personalizedMessage = replaceVariables(htmlContent!, contact);
+
+          await sendWhatsApp({
+            to: contact.phone!,
+            message: personalizedMessage,
+            workspaceId,
+          });
+
+          await prisma.emailLog.update({
+            where: { id: emailLog.id },
+            data: { status: "sent", sentAt: new Date() },
+          });
+
+          await logActivity({
+            type: "whatsapp_sent",
+            contactId: contact.id,
+            workspaceId,
+            metadata: {
+              campaignId: id,
+              campaignName: campaign.name,
+              channel: "whatsapp",
+            },
+          });
+        } else {
+          // Email send
+          // Generate unsubscribe URL per contact
+          const unsubscribeUrl = generateUnsubscribeUrl(contact.id, workspaceId);
+
+          // Auto-append unsubscribe footer if not already present
+          let finalHtml = htmlContent!;
+          if (!finalHtml.includes("{{unsubscribeUrl}}")) {
+            finalHtml = finalHtml + UNSUBSCRIBE_FOOTER;
+          }
+
+          // Replace variables per contact
+          const personalizedSubject = replaceVariables(subject!, contact, { unsubscribeUrl });
+          const personalizedHtml = replaceVariables(finalHtml, contact, { unsubscribeUrl });
+
+          await sendEmail({
+            to: contact.email,
+            subject: personalizedSubject,
+            html: personalizedHtml,
+            workspaceId,
+          });
+
+          await prisma.emailLog.update({
+            where: { id: emailLog.id },
+            data: { status: "sent", sentAt: new Date() },
+          });
+
+          await logActivity({
+            type: "email_sent",
+            contactId: contact.id,
+            workspaceId,
+            metadata: { campaignId: id, campaignName: campaign.name },
+          });
+        }
+
+        sentCount++;
+      } catch {
+        await prisma.emailLog.update({
+          where: { id: emailLog.id },
+          data: { status: "bounced" },
+        });
+        errorCount++;
+      }
     }
+  } catch (error) {
+    await prisma.campaign.update({
+      where: { id },
+      data: { status: "draft" },
+    });
+    return { error: "Erro durante o envio. A campanha foi revertida para rascunho." };
   }
 
   await prisma.campaign.update({
@@ -345,6 +375,7 @@ export async function getCampaignsWithMetrics() {
       status: campaign.status,
       sentAt: campaign.sentAt,
       createdAt: campaign.createdAt,
+      channel: campaign.channel,
       template: campaign.template,
       totalSent,
       openRate,

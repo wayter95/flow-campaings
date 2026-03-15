@@ -185,7 +185,7 @@ export function stepsToFlow(
         break;
       case "send_whatsapp":
         nodeType = "action";
-        data = { actionType: "send_whatsapp", whatsappMessage: (step.config as Record<string, unknown>).message || "", ...step.config };
+        data = { actionType: "send_whatsapp", whatsappMessage: (step.config as Record<string, unknown>).message || "" };
         break;
       case "add_tag":
       case "remove_tag":

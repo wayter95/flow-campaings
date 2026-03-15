@@ -26,19 +26,19 @@ export default async function DashboardPage() {
     {
       name: "Campanhas Enviadas",
       value: metrics.sentCampaigns,
-      sub: `${metrics.totalCampaigns} no total`,
+      sub: `${metrics.totalCampaigns} no total (email + WhatsApp)`,
       icon: Mail,
     },
     {
       name: "Taxa de Abertura",
       value: `${metrics.openRate}%`,
-      sub: `${metrics.totalOpened} aberturas`,
+      sub: `${metrics.totalOpened} aberturas (apenas email)`,
       icon: TrendingUp,
     },
     {
       name: "Taxa de Cliques",
       value: `${metrics.clickRate}%`,
-      sub: `${metrics.totalClicked} cliques`,
+      sub: `${metrics.totalClicked} cliques (apenas email)`,
       icon: MousePointer,
     },
   ];

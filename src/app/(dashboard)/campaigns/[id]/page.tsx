@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Send, Users, Mail, MousePointer, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Send, Users, Mail, MousePointer, AlertTriangle, CheckCircle, XCircle, MessageCircle } from "lucide-react";
 import Link from "next/link";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -40,10 +40,13 @@ export default async function CampaignDetailPage({ params }: CampaignDetailPageP
     getWhatsAppTemplates(),
   ]);
 
+  const isWhatsApp = campaign.channel === "whatsapp";
   const totalSent = campaign.emailLogs.filter((l) => l.status !== "queued").length;
   const totalOpened = campaign.emailLogs.filter((l) => l.openedAt).length;
   const totalClicked = campaign.emailLogs.filter((l) => l.clickedAt).length;
   const totalBounced = campaign.emailLogs.filter((l) => l.status === "bounced").length;
+  const totalDelivered = campaign.emailLogs.filter((l) => l.status === "sent").length;
+  const totalFailed = campaign.emailLogs.filter((l) => l.status === "bounced").length;
   const openRate = totalSent > 0 ? ((totalOpened / totalSent) * 100).toFixed(1) : "0";
   const clickRate = totalSent > 0 ? ((totalClicked / totalSent) * 100).toFixed(1) : "0";
   const bounceRate = totalSent > 0 ? ((totalBounced / totalSent) * 100).toFixed(1) : "0";
@@ -67,58 +70,91 @@ export default async function CampaignDetailPage({ params }: CampaignDetailPageP
         </div>
         {campaign.status === "draft" && (
           <div className="flex items-center gap-2">
-            <CampaignTestButton campaignId={campaign.id} />
+            {!isWhatsApp && <CampaignTestButton campaignId={campaign.id} />}
             <CampaignSendButton campaignId={campaign.id} />
           </div>
         )}
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className={`grid gap-4 sm:grid-cols-2 ${isWhatsApp ? "lg:grid-cols-3" : "lg:grid-cols-4"}`}>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Emails enviados
+              {isWhatsApp ? "Mensagens enviadas" : "Emails enviados"}
             </CardTitle>
-            <Mail className="h-4 w-4 text-muted-foreground" />
+            {isWhatsApp ? (
+              <MessageCircle className="h-4 w-4 text-muted-foreground" />
+            ) : (
+              <Mail className="h-4 w-4 text-muted-foreground" />
+            )}
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalSent}</div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Taxa de abertura
-            </CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{openRate}%</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Taxa de cliques
-            </CardTitle>
-            <MousePointer className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{clickRate}%</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Taxa de bounce
-            </CardTitle>
-            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{bounceRate}%</div>
-            <p className="text-xs text-muted-foreground">{totalBounced} bounce(s)</p>
-          </CardContent>
-        </Card>
+        {isWhatsApp ? (
+          <>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Entregues
+                </CardTitle>
+                <CheckCircle className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{totalDelivered}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Falhas
+                </CardTitle>
+                <XCircle className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{totalFailed}</div>
+              </CardContent>
+            </Card>
+          </>
+        ) : (
+          <>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Taxa de abertura
+                </CardTitle>
+                <Users className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{openRate}%</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Taxa de cliques
+                </CardTitle>
+                <MousePointer className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{clickRate}%</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Taxa de bounce
+                </CardTitle>
+                <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{bounceRate}%</div>
+                <p className="text-xs text-muted-foreground">{totalBounced} bounce(s)</p>
+              </CardContent>
+            </Card>
+          </>
+        )}
       </div>
 
       <Tabs defaultValue={campaign.status === "draft" ? "edit" : "logs"}>
@@ -209,8 +245,12 @@ export default async function CampaignDetailPage({ params }: CampaignDetailPageP
                       <TableHead>Contato</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Enviado em</TableHead>
-                      <TableHead>Aberto em</TableHead>
-                      <TableHead>Clicado em</TableHead>
+                      {!isWhatsApp && (
+                        <>
+                          <TableHead>Aberto em</TableHead>
+                          <TableHead>Clicado em</TableHead>
+                        </>
+                      )}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -232,16 +272,20 @@ export default async function CampaignDetailPage({ params }: CampaignDetailPageP
                             ? new Date(log.sentAt).toLocaleString("pt-BR")
                             : "—"}
                         </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {log.openedAt
-                            ? new Date(log.openedAt).toLocaleString("pt-BR")
-                            : "—"}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {log.clickedAt
-                            ? new Date(log.clickedAt).toLocaleString("pt-BR")
-                            : "—"}
-                        </TableCell>
+                        {!isWhatsApp && (
+                          <>
+                            <TableCell className="text-muted-foreground">
+                              {log.openedAt
+                                ? new Date(log.openedAt).toLocaleString("pt-BR")
+                                : "—"}
+                            </TableCell>
+                            <TableCell className="text-muted-foreground">
+                              {log.clickedAt
+                                ? new Date(log.clickedAt).toLocaleString("pt-BR")
+                                : "—"}
+                            </TableCell>
+                          </>
+                        )}
                       </TableRow>
                     ))}
                   </TableBody>

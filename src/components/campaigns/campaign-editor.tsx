@@ -257,7 +257,10 @@ export function CampaignEditor({
                 type="button"
                 variant={channel === "whatsapp" ? "default" : "ghost"}
                 size="sm"
-                className="h-8 text-sm gap-2"
+                className={cn(
+                  "h-8 text-sm gap-2",
+                  channel === "whatsapp" && "bg-emerald-600 text-white hover:bg-emerald-700"
+                )}
                 onClick={() => setChannel("whatsapp")}
               >
                 <MessageCircle className="h-4 w-4" />

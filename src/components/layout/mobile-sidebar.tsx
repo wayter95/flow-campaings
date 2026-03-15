@@ -33,8 +33,8 @@ export function MobileSidebar() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex h-14 items-center border-b px-6">
-        <Logo href="/" height={28} />
+      <div className="flex h-16 items-center justify-center border-b px-4">
+        <Logo href="/" height={40} className="w-full max-w-[180px]" />
       </div>
       <nav className="flex-1 p-4 space-y-1">
         {navigation.map((item) => {

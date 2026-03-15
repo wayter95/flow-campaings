@@ -4,6 +4,12 @@ import { sendEmail } from "@/lib/sendgrid";
 import { sendWhatsApp } from "@/lib/evolution";
 import { logActivity } from "@/services/activities";
 import { replaceVariables } from "@/lib/replace-variables";
+import { generateUnsubscribeUrl } from "@/lib/unsubscribe";
+
+const UNSUBSCRIBE_FOOTER = `<div style="text-align:center;padding:20px;font-size:12px;color:#999;">
+  <p>Voce esta recebendo este email porque se inscreveu em nossa lista.</p>
+  <p><a href="{{unsubscribeUrl}}" style="color:#666;">Cancelar inscricao</a></p>
+</div>`;
 
 export async function GET(request: NextRequest) {
   // Optional: verify cron secret
@@ -32,10 +38,12 @@ export async function GET(request: NextRequest) {
     if (!isWhatsApp && (!campaign.subject || !campaign.htmlContent)) continue;
     if (isWhatsApp && !campaign.htmlContent) continue;
 
-    await prisma.campaign.update({
-      where: { id: campaign.id },
+    // Atomic status transition to prevent double processing
+    const transitioned = await prisma.campaign.updateMany({
+      where: { id: campaign.id, status: "scheduled" },
       data: { status: "sending" },
     });
+    if (transitioned.count === 0) continue;
 
     const contacts = await prisma.contact.findMany({
       where: { workspaceId: campaign.workspaceId, unsubscribed: false },
@@ -76,8 +84,18 @@ export async function GET(request: NextRequest) {
             metadata: { campaignId: campaign.id, campaignName: campaign.name, channel: "whatsapp" },
           });
         } else {
-          const personalizedSubject = replaceVariables(campaign.subject!, contact);
-          const personalizedHtml = replaceVariables(campaign.htmlContent!, contact);
+          // Generate unsubscribe URL per contact
+          const unsubscribeUrl = generateUnsubscribeUrl(contact.id, campaign.workspaceId);
+
+          // Auto-append unsubscribe footer if not already present
+          let finalHtml = campaign.htmlContent!;
+          if (!finalHtml.includes("{{unsubscribeUrl}}")) {
+            finalHtml = finalHtml + UNSUBSCRIBE_FOOTER;
+          }
+
+          // Replace variables per contact
+          const personalizedSubject = replaceVariables(campaign.subject!, contact, { unsubscribeUrl });
+          const personalizedHtml = replaceVariables(finalHtml, contact, { unsubscribeUrl });
 
           await sendEmail({
             to: contact.email,
@@ -114,9 +132,14 @@ export async function GET(request: NextRequest) {
     });
   }
 
+  // Process delayed automation steps
+  const { processDelayedSteps } = await import("@/services/automation-engine");
+  const automationResult = await processDelayedSteps();
+
   return NextResponse.json({
     success: true,
     campaignsProcessed: campaigns.length,
     totalSent,
+    automationStepsProcessed: automationResult.processed,
   });
 }

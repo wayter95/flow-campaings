@@ -48,6 +48,7 @@ export function ContactsTable({ contacts, allTags }: ContactsTableProps) {
         <TableRow>
           <TableHead>Nome</TableHead>
           <TableHead>Email</TableHead>
+          <TableHead>Telefone</TableHead>
           <TableHead>Tags</TableHead>
           <TableHead>Origem</TableHead>
           <TableHead>Data</TableHead>
@@ -68,6 +69,9 @@ export function ContactsTable({ contacts, allTags }: ContactsTableProps) {
               </Link>
             </TableCell>
             <TableCell>{contact.email}</TableCell>
+            <TableCell className="text-muted-foreground">
+              {contact.phone || "—"}
+            </TableCell>
             <TableCell>
               <div className="flex gap-1 flex-wrap">
                 {contact.tags.map(({ tag }) => (

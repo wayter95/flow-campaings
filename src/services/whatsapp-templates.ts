@@ -37,6 +37,10 @@ export async function createWhatsAppTemplate(formData: FormData) {
 }
 
 export async function updateWhatsAppTemplate(id: string, formData: FormData) {
+  const workspaceId = await getWorkspaceId();
+  const existing = await prisma.whatsAppTemplate.findFirst({ where: { id, workspaceId } });
+  if (!existing) return { error: "Template nao encontrado" };
+
   const name = formData.get("name") as string;
   const message = formData.get("message") as string;
 
@@ -54,6 +58,10 @@ export async function updateWhatsAppTemplate(id: string, formData: FormData) {
 }
 
 export async function deleteWhatsAppTemplate(id: string) {
+  const workspaceId = await getWorkspaceId();
+  const existing = await prisma.whatsAppTemplate.findFirst({ where: { id, workspaceId } });
+  if (!existing) return { error: "Template nao encontrado" };
+
   await prisma.whatsAppTemplate.delete({ where: { id } });
   revalidatePath("/templates/whatsapp");
   return { success: true };

@@ -9,6 +9,9 @@ function getEncryptionKey(): Buffer {
       "ENCRYPTION_KEY não definida. Gere uma com: openssl rand -hex 32"
     );
   }
+  if (key.length !== 64) {
+    throw new Error("ENCRYPTION_KEY deve ter exatamente 64 caracteres hexadecimais (32 bytes)");
+  }
   return Buffer.from(key, "hex");
 }
 
