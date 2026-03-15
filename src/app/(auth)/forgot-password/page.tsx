@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
 import { AuthCard, AuthError } from "@/components/auth/auth-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Mail, ArrowLeft, CheckCircle2 } from "lucide-react";
 import { requestPasswordReset } from "@/services/password-reset";
+import { ArrowLeft, CheckCircle2, Mail } from "lucide-react";
+import Link from "next/link";
+import { useState } from "react";
 
 export default function ForgotPasswordPage() {
   const [loading, setLoading] = useState(false);
@@ -62,7 +62,7 @@ export default function ForgotPasswordPage() {
               Verifique sua caixa de entrada e a pasta de spam.
             </p>
           </div>
-          <Button variant="outline" className="w-full h-10 font-medium" asChild>
+          <Button variant="outline" className="w-full h-10 font-medium">
             <Link href="/login" className="inline-flex items-center justify-center gap-2">
               <ArrowLeft className="h-4 w-4" />
               Voltar para o login

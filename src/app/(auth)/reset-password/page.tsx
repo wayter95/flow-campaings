@@ -1,14 +1,14 @@
 "use client";
 
-import { useState, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
-import Link from "next/link";
 import { AuthCard, AuthError } from "@/components/auth/auth-card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/ui/password-input";
-import { CheckCircle2, AlertCircle } from "lucide-react";
 import { resetPassword } from "@/services/password-reset";
+import { AlertCircle, CheckCircle2 } from "lucide-react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
 
 function ResetPasswordForm() {
   const searchParams = useSearchParams();
@@ -29,7 +29,7 @@ function ResetPasswordForm() {
             Link inválido. Solicite um novo link de recuperação.
           </p>
         </div>
-        <Button className="w-full h-10 font-medium" asChild>
+        <Button className="w-full h-10 font-medium">
           <Link href="/forgot-password">Solicitar novo link</Link>
         </Button>
       </div>
@@ -68,7 +68,7 @@ function ResetPasswordForm() {
             Agora você pode entrar com sua nova senha.
           </p>
         </div>
-        <Button className="w-full h-10 font-medium" asChild>
+        <Button className="w-full h-10 font-medium">
           <Link href="/login">Ir para o login</Link>
         </Button>
       </div>
