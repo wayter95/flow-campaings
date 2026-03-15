@@ -10,10 +10,14 @@ interface DragDropEmailEditorProps {
   onChange: (html: string) => void;
 }
 
-function getFullHtml(editor: Editor): string {
-  const html = editor.getHtml();
-  const css = editor.getCss();
-  return css ? `<style>${css}</style>${html}` : html;
+function getFullHtml(editor: Editor): string | null {
+  try {
+    const html = editor.getHtml();
+    const css = editor.getCss();
+    return css ? `<style>${css}</style>${html}` : html;
+  } catch {
+    return null;
+  }
 }
 
 export function DragDropEmailEditor({ value, onChange }: DragDropEmailEditorProps) {
@@ -79,9 +83,12 @@ export function DragDropEmailEditor({ value, onChange }: DragDropEmailEditorProp
     const emitChange = () => {
       clearTimeout(changeTimer);
       changeTimer = setTimeout(() => {
+        if (editor.isDestroyed?.()) return;
         const html = getFullHtml(editor);
-        lastEmittedRef.current = html;
-        onChangeRef.current(html);
+        if (html !== null) {
+          lastEmittedRef.current = html;
+          onChangeRef.current(html);
+        }
       }, 150);
     };
 
