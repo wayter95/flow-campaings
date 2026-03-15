@@ -7,55 +7,18 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Mail } from "lucide-react";
-import { signIn } from "next-auth/react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useActionState } from "react";
+import { loginAction } from "./actions";
 
 export default function LoginPage() {
-  const router = useRouter();
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setError("");
-    setLoading(true);
-
-    const formData = new FormData(e.currentTarget);
-
-    try {
-      const result = await signIn("credentials", {
-        email: formData.get("email"),
-        password: formData.get("password"),
-        redirect: false,
-        callbackUrl: "/",
-      });
-
-      console.log("result", result);
-
-      if (result?.error) {
-        setError("Email ou senha incorretos");
-        setLoading(false);
-        return;
-      }
-
-      if (result?.ok) {
-        router.push("/");
-        router.refresh();
-        return;
-      }
-
-      // Fallback: authorize passou mas resposta inesperada
-      router.push("/");
-      router.refresh();
-    } catch (error) {
-      console.error("Error", error);
-      setError("Erro ao conectar. Tente novamente.");
-      setLoading(false);
-    }
-
-  }
+  const [state, formAction, isPending] = useActionState(
+    async (_prev: { error: string } | null, formData: FormData) => {
+      const result = await loginAction(formData);
+      return result ?? null;
+    },
+    null,
+  );
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-muted/30 px-4">
@@ -67,10 +30,10 @@ export default function LoginPage() {
           <CardDescription>Entre na sua conta</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
+          <form action={formAction} className="space-y-4">
+            {state?.error && (
               <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-md">
-                {error}
+                {state.error}
               </div>
             )}
             <div className="space-y-2">
@@ -104,8 +67,8 @@ export default function LoginPage() {
                 required
               />
             </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Entrando..." : "Entrar"}
+            <Button type="submit" className="w-full" disabled={isPending}>
+              {isPending ? "Entrando..." : "Entrar"}
             </Button>
           </form>
           <p className="text-center text-sm text-muted-foreground mt-4">
