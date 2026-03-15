@@ -15,6 +15,7 @@ interface FlowEditorWrapperProps {
   forms: { id: string; name: string }[];
   tags: { id: string; name: string }[];
   templates: { id: string; name: string; subject: string }[];
+  whatsappTemplates: { id: string; name: string; message: string }[];
 }
 
 export function FlowEditorWrapper({
@@ -25,6 +26,7 @@ export function FlowEditorWrapper({
   forms,
   tags,
   templates,
+  whatsappTemplates,
 }: FlowEditorWrapperProps) {
   // Use saved flowData if available, otherwise convert from steps
   const { initialNodes, initialEdges } = useMemo(() => {
@@ -83,6 +85,7 @@ export function FlowEditorWrapper({
       forms={forms}
       tags={tags}
       templates={templates}
+      whatsappTemplates={whatsappTemplates}
     />
   );
 }

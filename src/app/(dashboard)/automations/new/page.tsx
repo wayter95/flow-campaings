@@ -1,13 +1,15 @@
 import { getForms } from "@/services/forms";
 import { getTags } from "@/services/contacts";
 import { getEmailTemplates } from "@/services/email-templates";
+import { getWhatsAppTemplates } from "@/services/whatsapp-templates";
 import { FlowCreatorWrapper } from "@/components/flow-builder/flow-creator-wrapper";
 
 export default async function NewAutomationPage() {
-  const [forms, tags, templates] = await Promise.all([
+  const [forms, tags, templates, whatsappTemplates] = await Promise.all([
     getForms(),
     getTags(),
     getEmailTemplates(),
+    getWhatsAppTemplates(),
   ]);
 
   return (
@@ -22,6 +24,7 @@ export default async function NewAutomationPage() {
         forms={forms.map((f) => ({ id: f.id, name: f.name }))}
         tags={tags.map((t) => ({ id: t.id, name: t.name }))}
         templates={templates.map((t) => ({ id: t.id, name: t.name, subject: t.subject }))}
+        whatsappTemplates={whatsappTemplates.map((t) => ({ id: t.id, name: t.name, message: t.message }))}
       />
     </div>
   );

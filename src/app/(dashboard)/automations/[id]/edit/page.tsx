@@ -2,6 +2,7 @@ import { getAutomation } from "@/services/automations";
 import { getForms } from "@/services/forms";
 import { getTags } from "@/services/contacts";
 import { getEmailTemplates } from "@/services/email-templates";
+import { getWhatsAppTemplates } from "@/services/whatsapp-templates";
 import { notFound } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
@@ -15,11 +16,12 @@ interface EditAutomationPageProps {
 export default async function EditAutomationPage({ params }: EditAutomationPageProps) {
   const { id } = await params;
 
-  const [automation, forms, tags, templates] = await Promise.all([
+  const [automation, forms, tags, templates, whatsappTemplates] = await Promise.all([
     getAutomation(id),
     getForms(),
     getTags(),
     getEmailTemplates(),
+    getWhatsAppTemplates(),
   ]);
 
   if (!automation) notFound();
@@ -55,6 +57,7 @@ export default async function EditAutomationPage({ params }: EditAutomationPageP
         forms={forms.map((f) => ({ id: f.id, name: f.name }))}
         tags={tags.map((t) => ({ id: t.id, name: t.name }))}
         templates={templates.map((t) => ({ id: t.id, name: t.name, subject: t.subject }))}
+        whatsappTemplates={whatsappTemplates.map((t) => ({ id: t.id, name: t.name, message: t.message }))}
       />
     </div>
   );

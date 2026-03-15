@@ -1,11 +1,13 @@
 "use client";
 
-import { Zap, Mail, MessageCircle, Clock, GitBranch } from "lucide-react";
+import { Zap, Mail, MessageCircle, Clock, GitBranch, Tag, MinusCircle } from "lucide-react";
 
 const nodeItems = [
   { type: "trigger", label: "Trigger", icon: Zap, color: "bg-green-100 border-green-300 text-green-700 dark:bg-green-950 dark:border-green-700 dark:text-green-300" },
   { type: "action", label: "Email", icon: Mail, color: "bg-blue-100 border-blue-300 text-blue-700 dark:bg-blue-950 dark:border-blue-700 dark:text-blue-300", defaultData: "send_email" },
   { type: "action_whatsapp", label: "WhatsApp", icon: MessageCircle, color: "bg-emerald-100 border-emerald-300 text-emerald-700 dark:bg-emerald-950 dark:border-emerald-700 dark:text-emerald-300", defaultData: "send_whatsapp" },
+  { type: "action", label: "Adicionar tag", icon: Tag, color: "bg-violet-100 border-violet-300 text-violet-700 dark:bg-violet-950 dark:border-violet-700 dark:text-violet-300", defaultData: "add_tag" },
+  { type: "action", label: "Remover tag", icon: MinusCircle, color: "bg-rose-100 border-rose-300 text-rose-700 dark:bg-rose-950 dark:border-rose-700 dark:text-rose-300", defaultData: "remove_tag" },
   { type: "delay", label: "Delay", icon: Clock, color: "bg-amber-100 border-amber-300 text-amber-700 dark:bg-amber-950 dark:border-amber-700 dark:text-amber-300" },
   { type: "condition", label: "Condicao", icon: GitBranch, color: "bg-orange-100 border-orange-300 text-orange-700 dark:bg-orange-950 dark:border-orange-700 dark:text-orange-300" },
 ];

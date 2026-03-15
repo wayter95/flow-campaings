@@ -14,17 +14,19 @@ import {
   Workflow,
   FileCode,
   MessageCircle,
+  Tag,
 } from "lucide-react";
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "Contatos", href: "/contacts", icon: Users },
   { name: "Segmentos", href: "/segments", icon: Filter },
+  { name: "Tags", href: "/tags", icon: Tag },
+  { name: "Formularios", href: "/forms", icon: FileText },
+  { name: "Templates de E-mail", href: "/templates", icon: FileCode },
+  { name: "Templates WhatsApp", href: "/templates/whatsapp", icon: MessageCircle },
   { name: "Campanhas", href: "/campaigns", icon: Mail },
   { name: "Automacoes", href: "/automations", icon: Workflow },
-  { name: "Templates", href: "/templates", icon: FileCode },
-  { name: "Templates WhatsApp", href: "/templates/whatsapp", icon: MessageCircle },
-  { name: "Formularios", href: "/forms", icon: FileText },
   { name: "Configuracoes", href: "/settings", icon: Settings },
 ];
 

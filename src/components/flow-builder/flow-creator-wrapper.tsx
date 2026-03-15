@@ -13,9 +13,10 @@ interface FlowCreatorWrapperProps {
   forms: { id: string; name: string }[];
   tags: { id: string; name: string }[];
   templates: { id: string; name: string; subject: string }[];
+  whatsappTemplates: { id: string; name: string; message: string }[];
 }
 
-export function FlowCreatorWrapper({ forms, tags, templates }: FlowCreatorWrapperProps) {
+export function FlowCreatorWrapper({ forms, tags, templates, whatsappTemplates }: FlowCreatorWrapperProps) {
   const router = useRouter();
   const [name, setName] = useState("");
 
@@ -77,6 +78,7 @@ export function FlowCreatorWrapper({ forms, tags, templates }: FlowCreatorWrappe
         forms={forms}
         tags={tags}
         templates={templates}
+        whatsappTemplates={whatsappTemplates}
       />
     </div>
   );

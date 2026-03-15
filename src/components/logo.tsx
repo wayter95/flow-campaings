@@ -52,8 +52,7 @@ export function Logo({ className, href = "/", height = 40 }: LogoProps) {
     return (
       <Link
         href={href}
-        className="flex w-full items-center justify-center"
-        style={{ minHeight: height }}
+        className="flex w-full min-w-0 items-center justify-center"
       >
         {svg}
       </Link>

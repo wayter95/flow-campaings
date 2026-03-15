@@ -43,6 +43,7 @@ interface FlowCanvasProps {
   forms: { id: string; name: string }[];
   tags: { id: string; name: string }[];
   templates: { id: string; name: string; subject: string }[];
+  whatsappTemplates: { id: string; name: string; message: string }[];
 }
 
 let nodeId = 0;
@@ -50,7 +51,7 @@ function getNodeId() {
   return `node_${++nodeId}_${Date.now()}`;
 }
 
-function FlowCanvasInner({ initialNodes = [], initialEdges = [], onSave, forms, tags, templates }: FlowCanvasProps) {
+function FlowCanvasInner({ initialNodes = [], initialEdges = [], onSave, forms, tags, templates, whatsappTemplates }: FlowCanvasProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
@@ -131,8 +132,12 @@ function FlowCanvasInner({ initialNodes = [], initialEdges = [], onSave, forms, 
 
       // Allow override from drag data
       const defaultOverride = event.dataTransfer.getData("application/reactflow-default");
-      if (defaultOverride === "send_whatsapp" && nodeType === "action") {
-        nodeData = { actionType: "send_whatsapp" };
+      if (defaultOverride && nodeType === "action") {
+        if (defaultOverride === "send_whatsapp" || defaultOverride === "add_tag" || defaultOverride === "remove_tag") {
+          nodeData = { actionType: defaultOverride };
+        } else if (defaultOverride === "send_email") {
+          nodeData = { actionType: "send_email" };
+        }
       }
 
       const newNode: Node = {
@@ -245,6 +250,7 @@ function FlowCanvasInner({ initialNodes = [], initialEdges = [], onSave, forms, 
           forms={forms}
           tags={tags}
           templates={templates}
+          whatsappTemplates={whatsappTemplates}
         />
       )}
     </div>

@@ -27,6 +27,7 @@ interface SendEmailConfig {
 
 interface SendWhatsAppConfig {
   message: string;
+  whatsappTemplateId?: string;
 }
 
 interface DelayConfig {
@@ -200,7 +201,19 @@ async function processAutomationStepJob(job: Job<AutomationStepJobData>) {
         return { status: "skipped", reason: "no_phone" };
       }
 
-      const personalizedMessage = replaceVariables(whatsappConfig.message, contact);
+      let messageText = whatsappConfig.message;
+
+      // If a WhatsApp template is referenced, load its message
+      if (whatsappConfig.whatsappTemplateId) {
+        const waTemplate = await prisma.whatsAppTemplate.findUnique({
+          where: { id: whatsappConfig.whatsappTemplateId },
+        });
+        if (waTemplate) {
+          messageText = waTemplate.message;
+        }
+      }
+
+      const personalizedMessage = replaceVariables(messageText, contact);
 
       await sendWhatsApp({
         to: contact.phone,
