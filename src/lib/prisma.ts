@@ -1,5 +1,6 @@
 import { PrismaClient } from "@/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
+import pg from "pg";
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
@@ -12,9 +13,10 @@ function createPrismaClient() {
     .replace("channel_binding=require", "");
   connectionString = connectionString.replace(/[&?]$/, "").replace("?&", "?");
 
-  // Pass connectionString as PoolConfig property so pg driver parses
-  // credentials itself — avoids PrismaPg "(not available)" bug in standalone builds
-  const adapter = new PrismaPg({
+  // Create an explicit pg.Pool so credentials are parsed by the pg driver
+  // directly, avoiding the PrismaPg "(not available)" bug in standalone builds.
+  // Use type assertion to bypass adapter-pg type mismatch with pg version.
+  const pool = new pg.Pool({
     connectionString,
     ssl: { rejectUnauthorized: false },
     max: 10,
@@ -22,6 +24,8 @@ function createPrismaClient() {
     connectionTimeoutMillis: 15_000,
     allowExitOnIdle: true,
   });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const adapter = new PrismaPg(pool as any);
   return new PrismaClient({ adapter });
 }
 
