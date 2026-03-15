@@ -110,18 +110,36 @@ function FlowCanvasInner({ initialNodes = [], initialEdges = [], onSave, forms, 
         y: event.clientY - bounds.top - 25,
       };
 
-      const defaultData: Record<string, Record<string, unknown>> = {
+      // Map special types to base types with default data
+      let nodeType = type;
+      let nodeData: Record<string, unknown>;
+
+      const defaultDataMap: Record<string, Record<string, unknown>> = {
         trigger: { triggerType: "form_submitted" },
         action: { actionType: "send_email" },
+        action_whatsapp: { actionType: "send_whatsapp" },
         delay: { duration: 1, unit: "days" },
         condition: { field: "tag", op: "contains", value: "" },
       };
 
+      nodeData = defaultDataMap[type] || {};
+
+      // action_whatsapp should render as "action" node type
+      if (type === "action_whatsapp") {
+        nodeType = "action";
+      }
+
+      // Allow override from drag data
+      const defaultOverride = event.dataTransfer.getData("application/reactflow-default");
+      if (defaultOverride === "send_whatsapp" && nodeType === "action") {
+        nodeData = { actionType: "send_whatsapp" };
+      }
+
       const newNode: Node = {
         id: getNodeId(),
-        type,
+        type: nodeType,
         position,
-        data: defaultData[type] || {},
+        data: nodeData,
       };
 
       setNodes((nds) => nds.concat(newNode));

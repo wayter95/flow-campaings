@@ -1,0 +1,167 @@
+/* GrapesJS custom overrides */
+
+/* ─── Blocks panel ─── */
+.gjs-blocks-container .gjs-block {
+  width: calc(50% - 4px) !important;
+  min-height: 60px !important;
+  padding: 8px !important;
+  border-radius: 6px !important;
+  border: 1px solid var(--color-border) !important;
+  background: var(--color-card) !important;
+  color: var(--color-foreground) !important;
+  font-size: 11px !important;
+  transition: box-shadow 0.15s, border-color 0.15s !important;
+  margin: 2px !important;
+}
+
+.gjs-blocks-container .gjs-block:hover {
+  border-color: var(--color-primary) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+}
+
+.gjs-blocks-container .gjs-block svg {
+  fill: var(--color-muted-foreground) !important;
+}
+
+.gjs-blocks-container {
+  display: flex !important;
+  flex-wrap: wrap !important;
+}
+
+/* ─── Canvas ─── */
+.gjs-cv-canvas {
+  background-color: var(--color-muted) !important;
+  top: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.gjs-frame-wrapper {
+  padding: 16px !important;
+}
+
+/* ─── Toolbar ─── */
+.gjs-toolbar {
+  background-color: var(--color-primary) !important;
+  border-radius: 4px !important;
+}
+
+.gjs-toolbar-item {
+  color: white !important;
+}
+
+/* ─── Selected component highlight ─── */
+.gjs-selected {
+  outline: 2px solid var(--color-primary) !important;
+  outline-offset: -2px;
+}
+
+.gjs-highlighter {
+  outline: 1px dashed var(--color-primary) !important;
+}
+
+/* ─── Style manager ─── */
+.gjs-styles-container .gjs-sm-sector {
+  border-color: var(--color-border) !important;
+}
+
+.gjs-styles-container .gjs-sm-sector .gjs-sm-sector-title {
+  background: var(--color-muted) !important;
+  color: var(--color-foreground) !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  padding: 6px 8px !important;
+  border-color: var(--color-border) !important;
+}
+
+.gjs-styles-container .gjs-sm-property {
+  font-size: 11px !important;
+}
+
+.gjs-styles-container .gjs-field {
+  background: var(--color-card) !important;
+  border-color: var(--color-border) !important;
+  color: var(--color-foreground) !important;
+  border-radius: 4px !important;
+  font-size: 11px !important;
+}
+
+.gjs-styles-container .gjs-field input {
+  color: var(--color-foreground) !important;
+}
+
+/* ─── RTE (Rich Text Editor) ─── */
+.gjs-rte-toolbar {
+  background: var(--color-card) !important;
+  border: 1px solid var(--color-border) !important;
+  border-radius: 6px !important;
+  padding: 2px !important;
+}
+
+.gjs-rte-actionbar .gjs-rte-action {
+  border-color: var(--color-border) !important;
+  color: var(--color-foreground) !important;
+  border-radius: 3px !important;
+}
+
+.gjs-rte-actionbar .gjs-rte-active {
+  background: var(--color-primary) !important;
+  color: white !important;
+}
+
+/* ─── Badges ─── */
+.gjs-badge {
+  background: var(--color-primary) !important;
+  font-size: 10px !important;
+  border-radius: 3px !important;
+  padding: 1px 6px !important;
+}
+
+/* ─── Placeholder when dragging ─── */
+.gjs-placeholder {
+  border-color: var(--color-primary) !important;
+}
+
+/* ─── Remove default panel backgrounds ─── */
+.gjs-one-bg {
+  background-color: transparent !important;
+}
+
+.gjs-two-color {
+  color: var(--color-foreground) !important;
+}
+
+.gjs-three-bg {
+  background-color: var(--color-primary) !important;
+}
+
+.gjs-four-color,
+.gjs-four-color-h:hover {
+  color: var(--color-primary) !important;
+}
+
+/* ─── Layers ─── */
+.gjs-layers-container .gjs-layer {
+  font-size: 11px !important;
+}
+
+/* ─── Modals ─── */
+.gjs-mdl-dialog {
+  background: var(--color-card) !important;
+  border-radius: 8px !important;
+  color: var(--color-foreground) !important;
+}
+
+.gjs-mdl-header {
+  border-color: var(--color-border) !important;
+}
+
+.gjs-mdl-title {
+  color: var(--color-foreground) !important;
+  font-weight: 600 !important;
+}
+
+/* ─── Hide default panels we don't use ─── */
+.gjs-pn-panels {
+  display: none !important;
+}

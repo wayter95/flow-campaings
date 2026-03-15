@@ -7,6 +7,7 @@ import { z } from "zod";
 import { sendEmail } from "@/lib/sendgrid";
 import { logActivity } from "@/services/activities";
 import { evaluateRules, type SegmentRules } from "@/services/segments";
+import { replaceVariables } from "@/lib/replace-variables";
 
 const campaignSchema = z.object({
   name: z.string().min(1, "Nome e obrigatorio"),
@@ -19,6 +20,7 @@ export async function getCampaigns() {
   return prisma.campaign.findMany({
     where: { workspaceId },
     include: {
+      template: { select: { id: true, name: true } },
       _count: { select: { emailLogs: true } },
     },
     orderBy: { createdAt: "desc" },
@@ -30,6 +32,7 @@ export async function getCampaign(id: string) {
   return prisma.campaign.findFirst({
     where: { id, workspaceId },
     include: {
+      template: { select: { id: true, name: true, subject: true, htmlContent: true } },
       emailLogs: {
         include: { contact: true },
         orderBy: { createdAt: "desc" },
@@ -53,6 +56,7 @@ export async function createCampaign(formData: FormData) {
     return { error: result.error.issues[0].message };
   }
 
+  const templateId = (formData.get("templateId") as string) || null;
   const segmentIds = formData.get("segmentIds") as string;
   const scheduledAtStr = formData.get("scheduledAt") as string;
   const scheduledAt = scheduledAtStr ? new Date(scheduledAtStr) : null;
@@ -61,6 +65,7 @@ export async function createCampaign(formData: FormData) {
     data: {
       ...result.data,
       workspaceId,
+      ...(templateId ? { templateId } : {}),
       ...(scheduledAt ? { scheduledAt, status: "scheduled" } : {}),
       ...(segmentIds
         ? {
@@ -81,11 +86,13 @@ export async function createCampaign(formData: FormData) {
 export async function updateCampaign(id: string, formData: FormData) {
   const scheduledAtStr = formData.get("scheduledAt") as string;
   const scheduledAt = scheduledAtStr ? new Date(scheduledAtStr) : null;
+  const templateId = (formData.get("templateId") as string) || null;
 
   const raw = {
     name: formData.get("name") as string,
     subject: (formData.get("subject") as string) || null,
     htmlContent: (formData.get("htmlContent") as string) || null,
+    templateId,
     scheduledAt,
     ...(scheduledAt ? { status: "scheduled" } : {}),
   };
@@ -111,14 +118,22 @@ export async function sendCampaign(id: string) {
 
   const campaign = await prisma.campaign.findFirst({
     where: { id, workspaceId },
-    include: { segments: { include: { segment: true } } },
+    include: {
+      template: true,
+      segments: { include: { segment: true } },
+    },
   });
 
   if (!campaign) return { error: "Campanha nao encontrada" };
-  if (!campaign.subject) return { error: "Assunto e obrigatorio" };
-  if (!campaign.htmlContent) return { error: "Conteudo do email e obrigatorio" };
   if (campaign.status === "sent") return { error: "Campanha ja foi enviada" };
   if (campaign.status === "sending") return { error: "Campanha esta sendo enviada" };
+
+  // Resolve subject and html: campaign fields take priority, fallback to template
+  const subject = campaign.subject || campaign.template?.subject;
+  const htmlContent = campaign.htmlContent || campaign.template?.htmlContent;
+
+  if (!subject) return { error: "Assunto e obrigatorio. Defina no campanha ou vincule um template." };
+  if (!htmlContent) return { error: "Conteudo do email e obrigatorio. Defina na campanha ou vincule um template." };
 
   // Get contacts: from segments or all
   let contacts;
@@ -162,10 +177,15 @@ export async function sendCampaign(id: string) {
     });
 
     try {
+      // Replace variables per contact
+      const personalizedSubject = replaceVariables(subject, contact);
+      const personalizedHtml = replaceVariables(htmlContent, contact);
+
       await sendEmail({
         to: contact.email,
-        subject: campaign.subject,
-        html: campaign.htmlContent,
+        subject: personalizedSubject,
+        html: personalizedHtml,
+        workspaceId,
       });
 
       await prisma.emailLog.update({

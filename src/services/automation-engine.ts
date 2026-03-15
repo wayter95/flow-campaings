@@ -3,7 +3,9 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@/generated/prisma/client";
 import { sendEmail } from "@/lib/sendgrid";
+import { sendWhatsApp } from "@/lib/evolution";
 import { logActivity } from "@/services/activities";
+import { replaceVariables } from "@/lib/replace-variables";
 
 interface TriggerConfig {
   type: "form_submitted" | "tag_added" | "contact_created" | "manual";
@@ -15,6 +17,10 @@ interface SendEmailConfig {
   subject: string;
   htmlContent: string;
   templateId?: string;
+}
+
+interface SendWhatsAppConfig {
+  message: string;
 }
 
 interface DelayConfig {
@@ -34,14 +40,7 @@ interface ConditionConfig {
   falseStep: number;
 }
 
-type StepConfig = SendEmailConfig | DelayConfig | TagConfig | ConditionConfig;
-
-function replaceVariables(text: string, contact: { email: string; firstName: string | null; lastName: string | null }): string {
-  return text
-    .replace(/\{\{firstName\}\}/g, contact.firstName || "")
-    .replace(/\{\{lastName\}\}/g, contact.lastName || "")
-    .replace(/\{\{email\}\}/g, contact.email);
-}
+type StepConfig = SendEmailConfig | SendWhatsAppConfig | DelayConfig | TagConfig | ConditionConfig;
 
 export async function enrollContact(automationId: string, contactId: string) {
   const existing = await prisma.automationEnrollment.findUnique({
@@ -111,9 +110,45 @@ export async function processStep(enrollmentId: string) {
       html = replaceVariables(html, contact);
 
       try {
-        await sendEmail({ to: contact.email, subject, html });
+        await sendEmail({ to: contact.email, subject, html, workspaceId: automation.workspaceId });
         await logActivity({
           type: "email_sent",
+          contactId: contact.id,
+          workspaceId: automation.workspaceId,
+          metadata: { automationId: automation.id, automationName: automation.name },
+        });
+      } catch {
+        await prisma.automationEnrollment.update({
+          where: { id: enrollmentId },
+          data: { status: "failed" },
+        });
+        return;
+      }
+
+      await advanceStep(enrollmentId, enrollment.currentStep + 1, steps.length);
+      break;
+    }
+
+    case "send_whatsapp": {
+      const whatsappConfig = config as SendWhatsAppConfig;
+      const phone = contact.phone;
+
+      if (!phone) {
+        console.warn(`Contato ${contact.id} não tem número de telefone. Pulando envio WhatsApp.`);
+        await advanceStep(enrollmentId, enrollment.currentStep + 1, steps.length);
+        break;
+      }
+
+      const personalizedMessage = replaceVariables(whatsappConfig.message, contact);
+
+      try {
+        await sendWhatsApp({
+          to: phone,
+          message: personalizedMessage,
+          workspaceId: automation.workspaceId,
+        });
+        await logActivity({
+          type: "whatsapp_sent",
           contactId: contact.id,
           workspaceId: automation.workspaceId,
           metadata: { automationId: automation.id, automationName: automation.name },

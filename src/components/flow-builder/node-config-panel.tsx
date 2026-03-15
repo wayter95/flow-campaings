@@ -112,6 +112,7 @@ export function NodeConfigPanel({ node, onUpdate, onClose, forms, tags, template
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="send_email">Enviar email</SelectItem>
+                <SelectItem value="send_whatsapp">Enviar WhatsApp</SelectItem>
                 <SelectItem value="add_tag">Adicionar tag</SelectItem>
                 <SelectItem value="remove_tag">Remover tag</SelectItem>
               </SelectContent>
@@ -170,6 +171,26 @@ export function NodeConfigPanel({ node, onUpdate, onClose, forms, tags, template
                 </>
               )}
             </>
+          )}
+
+          {data.actionType === "send_whatsapp" && (
+            <div className="space-y-2">
+              <Label className="text-xs">Mensagem do WhatsApp</Label>
+              <Textarea
+                value={(data.whatsappMessage as string) || ""}
+                onChange={(e) => update({ whatsappMessage: e.target.value })}
+                placeholder="Ola {{firstName}}! Tudo bem?"
+                rows={6}
+              />
+              <p className="text-[10px] text-muted-foreground">
+                Variaveis: {"{{firstName}}"}, {"{{lastName}}"}, {"{{email}}"}
+              </p>
+              <div className="p-2 rounded bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+                <p className="text-[10px] text-amber-700 dark:text-amber-300">
+                  O contato precisa ter um numero de telefone cadastrado para receber mensagens via WhatsApp.
+                </p>
+              </div>
+            </div>
           )}
 
           {(data.actionType === "add_tag" || data.actionType === "remove_tag") && (

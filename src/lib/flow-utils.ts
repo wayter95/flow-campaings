@@ -103,6 +103,15 @@ function nodeToStep(node: Node, data: Record<string, unknown>, order: number): S
           order,
         };
       }
+      if (actionType === "send_whatsapp") {
+        return {
+          type: "send_whatsapp",
+          config: {
+            message: data.whatsappMessage || "",
+          },
+          order,
+        };
+      }
       return {
         type: actionType,
         config: { tagId: data.tagId || "" },
@@ -173,6 +182,10 @@ export function stepsToFlow(
       case "send_email":
         nodeType = "action";
         data = { actionType: "send_email", ...step.config };
+        break;
+      case "send_whatsapp":
+        nodeType = "action";
+        data = { actionType: "send_whatsapp", whatsappMessage: (step.config as Record<string, unknown>).message || "", ...step.config };
         break;
       case "add_tag":
       case "remove_tag":

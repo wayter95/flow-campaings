@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -11,9 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Trash2 } from "lucide-react";
-import { deleteContact } from "@/services/contacts";
-import { useRouter } from "next/navigation";
+import { ContactRowActions } from "./contact-row-actions";
 
 interface Contact {
   id: string;
@@ -25,19 +22,17 @@ interface Contact {
   tags: { tag: { id: string; name: string; color: string | null } }[];
 }
 
-interface ContactsTableProps {
-  contacts: Contact[];
+interface AllTag {
+  id: string;
+  name: string;
 }
 
-export function ContactsTable({ contacts }: ContactsTableProps) {
-  const router = useRouter();
+interface ContactsTableProps {
+  contacts: Contact[];
+  allTags: AllTag[];
+}
 
-  async function handleDelete(id: string) {
-    if (!confirm("Tem certeza que deseja excluir este contato?")) return;
-    await deleteContact(id);
-    router.refresh();
-  }
-
+export function ContactsTable({ contacts, allTags }: ContactsTableProps) {
   if (contacts.length === 0) {
     return (
       <div className="text-center py-12 text-muted-foreground">
@@ -88,14 +83,7 @@ export function ContactsTable({ contacts }: ContactsTableProps) {
               {new Date(contact.createdAt).toLocaleDateString("pt-BR")}
             </TableCell>
             <TableCell>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => handleDelete(contact.id)}
-                className="h-8 w-8 text-muted-foreground hover:text-destructive"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
+              <ContactRowActions contact={contact} allTags={allTags} />
             </TableCell>
           </TableRow>
         ))}

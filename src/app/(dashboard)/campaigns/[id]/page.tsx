@@ -1,4 +1,5 @@
 import { getCampaign } from "@/services/campaigns";
+import { getEmailTemplates } from "@/services/email-templates";
 import { notFound } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -31,8 +32,8 @@ interface CampaignDetailPageProps {
 export default async function CampaignDetailPage({ params }: CampaignDetailPageProps) {
   const { id } = await params;
   const campaign = await getCampaign(id);
-
   if (!campaign) notFound();
+  const templates = await getEmailTemplates();
 
   const totalSent = campaign.emailLogs.filter((l) => l.status !== "queued").length;
   const totalOpened = campaign.emailLogs.filter((l) => l.openedAt).length;
@@ -111,18 +112,33 @@ export default async function CampaignDetailPage({ params }: CampaignDetailPageP
 
         {campaign.status === "draft" && (
           <TabsContent value="edit" className="mt-4">
-            <CampaignEditor campaign={campaign} />
+            <CampaignEditor
+              campaign={campaign}
+              templates={templates.map((t) => ({
+                id: t.id,
+                name: t.name,
+                subject: t.subject,
+                htmlContent: t.htmlContent,
+              }))}
+            />
           </TabsContent>
         )}
 
         <TabsContent value="preview" className="mt-4">
           <Card>
             <CardContent className="pt-6">
-              {campaign.htmlContent ? (
-                <div
-                  className="prose max-w-none"
-                  dangerouslySetInnerHTML={{ __html: campaign.htmlContent }}
-                />
+              {(campaign.htmlContent || campaign.template?.htmlContent) ? (
+                <div className="flex justify-center">
+                  <div className="w-full max-w-[700px] bg-white rounded shadow-sm">
+                    <iframe
+                      srcDoc={campaign.htmlContent || campaign.template?.htmlContent || ""}
+                      title="Email preview"
+                      className="w-full border-0 rounded"
+                      style={{ height: "600px" }}
+                      sandbox="allow-same-origin"
+                    />
+                  </div>
+                </div>
               ) : (
                 <p className="text-muted-foreground">
                   Nenhum conteudo definido.

@@ -3,6 +3,7 @@ const activityLabels: Record<string, string> = {
   email_opened: "Email aberto",
   email_clicked: "Email clicado",
   email_bounced: "Email bounce",
+  whatsapp_sent: "WhatsApp enviado",
   form_submitted: "Formulario enviado",
   tag_added: "Tag adicionada",
   tag_removed: "Tag removida",

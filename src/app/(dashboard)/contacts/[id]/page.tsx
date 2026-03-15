@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Clock } from "lucide-react";
 import Link from "next/link";
 import { ContactTagManager } from "@/components/contacts/contact-tag-manager";
+import { ContactEditForm } from "@/components/contacts/contact-edit-form";
 
 interface ContactDetailPageProps {
   params: Promise<{ id: string }>;
@@ -49,22 +50,7 @@ export default async function ContactDetailPage({ params }: ContactDetailPagePro
             <CardTitle>Informacoes</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div>
-              <p className="text-sm text-muted-foreground">Email</p>
-              <p className="font-medium">{contact.email}</p>
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Nome</p>
-              <p className="font-medium">{contact.firstName || "—"}</p>
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Sobrenome</p>
-              <p className="font-medium">{contact.lastName || "—"}</p>
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Origem</p>
-              <p className="font-medium">{contact.source || "—"}</p>
-            </div>
+            <ContactEditForm contact={contact} />
             <div>
               <p className="text-sm text-muted-foreground">Criado em</p>
               <p className="font-medium">

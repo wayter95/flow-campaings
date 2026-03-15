@@ -51,6 +51,7 @@ export async function GET(request: NextRequest) {
           to: contact.email,
           subject: campaign.subject,
           html: campaign.htmlContent,
+          workspaceId: campaign.workspaceId,
         });
 
         await prisma.emailLog.update({

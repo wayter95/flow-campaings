@@ -1,4 +1,4 @@
-import { getContacts } from "@/services/contacts";
+import { getContacts, getTags } from "@/services/contacts";
 import { ContactsTable } from "@/components/contacts/contacts-table";
 import { ContactForm } from "@/components/contacts/contact-form";
 import { Button } from "@/components/ui/button";
@@ -23,11 +23,10 @@ export default async function ContactsPage({ searchParams }: ContactsPageProps) 
   const search = params.search || "";
   const page = parseInt(params.page || "1");
 
-  const { contacts, total, totalPages } = await getContacts({
-    search,
-    page,
-    limit: 20,
-  });
+  const [{ contacts, total, totalPages }, allTags] = await Promise.all([
+    getContacts({ search, page, limit: 20 }),
+    getTags(),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -63,7 +62,7 @@ export default async function ContactsPage({ searchParams }: ContactsPageProps) 
           <ContactsSearch defaultValue={search} />
         </CardHeader>
         <CardContent className="p-0">
-          <ContactsTable contacts={contacts} />
+          <ContactsTable contacts={contacts} allTags={allTags} />
         </CardContent>
       </Card>
 

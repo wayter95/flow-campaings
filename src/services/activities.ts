@@ -8,6 +8,7 @@ type ActivityType =
   | "email_opened"
   | "email_clicked"
   | "email_bounced"
+  | "whatsapp_sent"
   | "form_submitted"
   | "tag_added"
   | "tag_removed"

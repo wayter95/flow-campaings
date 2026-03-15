@@ -18,9 +18,9 @@ model User {
 }
 
 model Workspace {
-  id             String            @id @default(cuid())
+  id             String             @id @default(cuid())
   name           String
-  slug           String            @unique
+  slug           String             @unique
   members        WorkspaceMember[]
   contacts       Contact[]
   campaigns      Campaign[]
@@ -31,8 +31,25 @@ model Workspace {
   activityLogs   ActivityLog[]
   automations    Automation[]
   emailTemplates EmailTemplate[]
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
+  settings       WorkspaceSettings?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+}
+
+model WorkspaceSettings {
+  id                    String    @id @default(cuid())
+  // SendGrid
+  sendgridApiKey        String?   @db.Text // criptografado AES-256-GCM
+  senderEmail           String?
+  senderName            String?
+  // Evolution API (WhatsApp)
+  evolutionApiUrl       String?
+  evolutionApiKey       String?   @db.Text // criptografado AES-256-GCM
+  evolutionInstance     String?
+  workspace             Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspaceId           String    @unique
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 }
 
 model WorkspaceMember {
@@ -52,6 +69,7 @@ model Contact {
   email          String
   firstName      String?
   lastName       String?
+  phone          String?
   customFields   Json?
   source         String?
   unsubscribed   Boolean                 @default(false)
@@ -101,6 +119,8 @@ model Campaign {
   status      String            @default("draft")
   scheduledAt DateTime?
   sentAt      DateTime?
+  template    EmailTemplate?    @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  templateId  String?
   workspace   Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   workspaceId String
   emailLogs   EmailLog[]
@@ -228,7 +248,7 @@ model Automation {
 
 model AutomationStep {
   id           String     @id @default(cuid())
-  type         String     // send_email, add_tag, remove_tag, delay, condition
+  type         String     // send_email, send_whatsapp, add_tag, remove_tag, delay, condition
   config       Json       // configuracao especifica do step
   order        Int
   automation   Automation @relation(fields: [automationId], references: [id], onDelete: Cascade)
@@ -254,14 +274,15 @@ model AutomationEnrollment {
 }
 
 model EmailTemplate {
-  id          String    @id @default(cuid())
+  id          String     @id @default(cuid())
   name        String
   subject     String
-  htmlContent String    @db.Text
-  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  htmlContent String     @db.Text
+  workspace   Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   workspaceId String
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  campaigns   Campaign[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
 
   @@index([workspaceId])
 }
