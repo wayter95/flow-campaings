@@ -1,19 +1,11 @@
+import { auth } from "@/lib/auth";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { getToken } from "next-auth/jwt";
 
 export async function proxy(request: NextRequest) {
-  const secret = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET;
-  console.log("[proxy]", request.nextUrl.pathname, "secret length:", secret?.length, "AUTH_SECRET?", !!process.env.AUTH_SECRET, "NEXTAUTH_SECRET?", !!process.env.NEXTAUTH_SECRET);
+  const session = await auth();
 
-  const token = await getToken({
-    req: request,
-    secret,
-  });
-
-  console.log("[proxy]", request.nextUrl.pathname, "token?", !!token);
-
-  if (!token) {
+  if (!session) {
     const loginUrl = new URL("/login", request.url);
     return NextResponse.redirect(loginUrl);
   }
