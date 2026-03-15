@@ -6,15 +6,8 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 function createPrismaClient() {
-  // During Next.js build, DATABASE_URL may not be available
-  let connectionString = process.env.DATABASE_URL || "";
-
-  if (!connectionString) {
-    // Return a PrismaClient without adapter for build-time type checking
-    return new PrismaClient();
-  }
-
   // Use sslmode=require instead of verify-full to avoid cold-start timeouts on Neon
+  let connectionString = process.env.DATABASE_URL!;
   connectionString = connectionString
     .replace("sslmode=verify-full", "sslmode=require")
     .replace("channel_binding=require", "");

@@ -30,6 +30,8 @@ COPY . .
 RUN npx prisma generate
 
 ENV NEXT_TELEMETRY_DISABLED=1
+# Dummy DATABASE_URL for build-time (Next.js collects page data and initializes modules)
+ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy?sslmode=require"
 RUN npm run build
 
 # Production image
