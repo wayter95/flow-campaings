@@ -24,20 +24,34 @@ export default function LoginPage() {
 
     const formData = new FormData(e.currentTarget);
 
-    const result = await signIn("credentials", {
-      email: formData.get("email"),
-      password: formData.get("password"),
-      redirect: false,
-    });
+    try {
+      const result = await signIn("credentials", {
+        email: formData.get("email"),
+        password: formData.get("password"),
+        redirect: false,
+        callbackUrl: "/",
+      });
 
-    if (result?.error) {
-      setError("Email ou senha incorretos");
+      if (result?.error) {
+        setError("Email ou senha incorretos");
+        setLoading(false);
+        return;
+      }
+
+      if (result?.ok) {
+        router.push("/");
+        router.refresh();
+        return;
+      }
+
+      // Fallback: authorize passou mas resposta inesperada
+      router.push("/");
+      router.refresh();
+    } catch {
+      setError("Erro ao conectar. Tente novamente.");
       setLoading(false);
-      return;
     }
 
-    router.push("/");
-    router.refresh();
   }
 
   return (
