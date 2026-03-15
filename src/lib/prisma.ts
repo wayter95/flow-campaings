@@ -7,18 +7,18 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 function createPrismaClient() {
-  let connectionString = process.env.DATABASE_URL!;
-  connectionString = connectionString
-    .replace("sslmode=verify-full", "sslmode=require")
-    .replace("channel_binding=require", "");
-  connectionString = connectionString.replace(/[&?]$/, "").replace("?&", "?");
+  const connectionString = process.env.DATABASE_URL!;
 
-  // Create an explicit pg.Pool so credentials are parsed by the pg driver
-  // directly, avoiding the PrismaPg "(not available)" bug in standalone builds.
-  // Use type assertion to bypass adapter-pg type mismatch with pg version.
+  // Parse DATABASE_URL explicitly and pass individual params to pg.Pool
+  // to avoid PrismaPg "(not available)" credentials bug in standalone builds.
+  const url = new URL(connectionString);
   const pool = new pg.Pool({
-    connectionString,
-    ssl: { rejectUnauthorized: false },
+    user: decodeURIComponent(url.username),
+    password: decodeURIComponent(url.password),
+    host: url.hostname,
+    port: url.port ? parseInt(url.port) : 5432,
+    database: url.pathname.slice(1),
+    ssl: true,
     max: 10,
     idleTimeoutMillis: 60_000,
     connectionTimeoutMillis: 15_000,
