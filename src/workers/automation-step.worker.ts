@@ -201,7 +201,7 @@ async function processAutomationStepJob(job: Job<AutomationStepJobData>) {
         return { status: "skipped", reason: "no_phone" };
       }
 
-      let messageText = whatsappConfig.message;
+      let messageText = whatsappConfig.message || "";
 
       // If a WhatsApp template is referenced, load its message
       if (whatsappConfig.whatsappTemplateId) {
@@ -211,6 +211,12 @@ async function processAutomationStepJob(job: Job<AutomationStepJobData>) {
         if (waTemplate) {
           messageText = waTemplate.message;
         }
+      }
+
+      if (!messageText.trim()) {
+        console.warn(`[automation-step] WhatsApp step has no message, skipping. Automation: ${automation.id}`);
+        await enqueueNextStep(enrollmentId, enrollment.currentStep + 1, steps.length);
+        return { status: "skipped", reason: "empty_message" };
       }
 
       const personalizedMessage = replaceVariables(messageText, contact);
